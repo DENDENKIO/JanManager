@@ -37,26 +37,23 @@ fun AiWebViewWrapper(
                     loadWithOverviewMode = true
                     useWideViewPort = true
 
-                    // スクロール・ズーム有効化
                     setSupportZoom(true)
                     builtInZoomControls = true
                     displayZoomControls = false
 
-                    // Remove "; wv" from UserAgent as requested
-                    val originalUserAgent = userAgentString
-                    userAgentString = originalUserAgent.replace("; wv", "")
+                    // ★ GikobunAI方式: 完全なブラウザUAに変更（"; wv" 除去だけでなく全体を上書き）
+                    userAgentString =
+                        "Mozilla/5.0 (Linux; Android 13; Pixel 7) " +
+                        "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                        "Chrome/120.0.0.0 Mobile Safari/537.36"
 
                     cacheMode = WebSettings.LOAD_DEFAULT
                 }
 
-                // スクロールバー表示
                 isVerticalScrollBarEnabled = true
                 isHorizontalScrollBarEnabled = true
-
-                // Composeの親スクロールとの競合を防ぐ
                 isNestedScrollingEnabled = false
 
-                // Cookie settings
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.setAcceptCookie(true)
                 cookieManager.setAcceptThirdPartyCookies(this, true)
@@ -65,8 +62,6 @@ fun AiWebViewWrapper(
                 loadUrl(url)
             }
         },
-        update = { _ ->
-            // Update logic if needed
-        }
+        update = { _ -> }
     )
 }

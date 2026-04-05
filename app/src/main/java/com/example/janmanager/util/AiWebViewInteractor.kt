@@ -1,26 +1,35 @@
 package com.example.janmanager.util
 
+import android.os.Handler
+import android.os.Looper
+import android.util.Base64
 import android.util.Log
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
+import kotlin.coroutines.resume
 
 /**
- * WebView上のAIチャットサイト(Gemini/Perplexity)に対する
- * プロンプト注入→送信→レスポンス取得の共通ロジック。
+ * GikobunAI実証済み方式によるAIチャット自動操作.
  *
- * 使い方:
- *   val interactor = AiWebViewInteractor()
- *   interactor.webView = wv
- *   interactor.configure(inputSelectors, sendSelectors, responseSelectors, manualInput, manualSend, manualResponse)
- *   val result = interactor.executeFullFlow(janCode, targetBaseUrl) { status -> updateUi(status) }
+ * 核心:
+ *  1回のevaluateJavascriptで「要素待ち→注入→送信→レスポンス安定判定→コールバック」を
+ *  すべてJS側のsetTimeout/setIntervalで完結させる.
+ *  結果は AndroidBridge.onResult() JavascriptInterface でKotlin側に返す.
  */
 class AiWebViewInteractor {
 
     var webView: WebView? = null
+        set(value) {
+            field = value
+            value?.let { registerBridge(it) }
+        }
 
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    // セレクタ設定
     private var inputSelectors: List<String> = WebViewJsHelper.GEMINI_INPUT_SELECTORS
     private var sendSelectors: List<String> = WebViewJsHelper.GEMINI_SEND_SELECTORS
     private var responseSelectors: List<String> = WebViewJsHelper.GEMINI_RESPONSE_SELECTORS
@@ -28,7 +37,8 @@ class AiWebViewInteractor {
     private var manualSendButtonSelector: String? = null
     private var manualResponseSelector: String? = null
 
-    private var prevResponseCount: Int = 0
+    // コールバック管理（1件ずつ処理するので1つあれば十分）
+    private var pendingResultCallback: ((String?) -> Unit)? = null
 
     fun configure(
         inputSel: List<String>,
@@ -47,190 +57,289 @@ class AiWebViewInteractor {
     }
 
     // ---------------------------------------------------------------
-    // メインフロー: ページ待機 → 入力欄待機 → 注入 → 送信 → レスポンス取得
+    // AndroidBridge: JS → Kotlin コールバック
     // ---------------------------------------------------------------
+    private fun registerBridge(wv: WebView) {
+        try { wv.removeJavascriptInterface("JanBridge") } catch (_: Exception) {}
+        wv.addJavascriptInterface(BridgeInterface(), "JanBridge")
+    }
 
+    inner class BridgeInterface {
+        @JavascriptInterface
+        fun onResult(text: String?) {
+            mainHandler.post {
+                pendingResultCallback?.invoke(text)
+                pendingResultCallback = null
+            }
+        }
+
+        @JavascriptInterface
+        fun onError(message: String?) {
+            mainHandler.post {
+                Log.w(TAG, "JS onError: $message")
+                pendingResultCallback?.invoke(null)
+                pendingResultCallback = null
+            }
+        }
+
+        @JavascriptInterface
+        fun onStatus(status: String?) {
+            // 将来のステータス表示用（現在は未使用）
+            Log.d(TAG, "JS status: $status")
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // データクラス
+    // ---------------------------------------------------------------
     data class FetchResult(
         val success: Boolean,
         val data: AiResponseData? = null,
         val errorMessage: String? = null
     )
 
-    /**
-     * 1件のJANコードに対するAI取得フルフローを実行する。
-     * @param janCode 対象JANコード
-     * @param targetBaseUrl "gemini.google.com" or "perplexity.ai"
-     * @param onStatus ステータス更新コールバック（UI更新用）
-     * @return FetchResult
-     */
+    // ---------------------------------------------------------------
+    // メインフロー（GikobunAI方式: 1回のJS実行で全完結）
+    // ---------------------------------------------------------------
     suspend fun executeFullFlow(
         janCode: String,
         targetBaseUrl: String,
         onStatus: (String) -> Unit
     ): FetchResult {
-        // Phase 1: ページ遷移待ち
-        onStatus("$janCode ページ確認中...")
-        val pageReady = waitForPage(targetBaseUrl, onStatus)
-        if (!pageReady) {
-            return FetchResult(false, errorMessage = "ページが読み込まれませんでした。AIサイトにログインしてください。")
-        }
+        val wv = webView ?: return FetchResult(false, errorMessage = "WebViewが初期化されていません")
 
-        // Phase 2: 入力欄DOM出現待ち
-        onStatus("$janCode 入力欄の読み込み待ち...")
-        val inputReady = waitForInputElement(onStatus)
-        if (!inputReady) {
-            return FetchResult(false, errorMessage = "入力欄が見つかりません。AIサイトにログインしているか、セレクタ設定を確認してください。")
-        }
-        // DOMが出現してもイベントリスナー未登録の可能性があるため少し待つ
-        delay(1000)
+        onStatus("$janCode 実行中...")
 
-        // Phase 3: プロンプト注入 → 反映確認 → 送信（リトライ付き）
         val prompt = AiPromptBuilder.buildPrompt(janCode)
-        val injectAndSendResult = injectAndSend(janCode, prompt, onStatus)
-        if (!injectAndSendResult) {
-            return FetchResult(false, errorMessage = "プロンプトの注入または送信に失敗しました。AIサイトの構造が変わった可能性があります。")
-        }
+        val promptB64 = Base64.encodeToString(
+            prompt.toByteArray(Charsets.UTF_8),
+            Base64.NO_WRAP
+        )
 
-        // Phase 4: レスポンスポーリング
-        onStatus("$janCode レスポンス待ち...")
-        delay(3000)
-        val responseData = pollResponse(janCode, onStatus)
-        return if (responseData != null) {
-            FetchResult(true, data = responseData)
-        } else {
-            FetchResult(false, errorMessage = "レスポンス取得がタイムアウトしました。")
-        }
-    }
+        // 入力セレクタ配列
+        val allInputSelectors = buildSelectorList(inputSelectors, manualInputSelector)
+        val allSendSelectors = buildSelectorList(sendSelectors, manualSendButtonSelector)
+        val allResponseSelectors = buildSelectorList(responseSelectors, manualResponseSelector)
 
-    // ---------------------------------------------------------------
-    // Phase 1: ページ遷移待ち（最大15秒）
-    // ---------------------------------------------------------------
-    private suspend fun waitForPage(targetBaseUrl: String, onStatus: (String) -> Unit): Boolean {
-        for (wait in 0 until 15) {
-            val currentUrl = normalizeJsResult(evaluateJsSync("window.location.href")) ?: ""
-            if (currentUrl.contains(targetBaseUrl)) return true
-            onStatus("ページ遷移待ち... (${wait + 1}/15)")
-            delay(1000)
-        }
-        return false
-    }
+        val inputSelArr = allInputSelectors.joinToString(",") { "'$it'" }
+        val sendSelArr = allSendSelectors.joinToString(",") { "'$it'" }
+        val responseSelArr = allResponseSelectors.joinToString(",") { "'$it'" }
 
-    // ---------------------------------------------------------------
-    // Phase 2: 入力欄DOM出現待ち（最大20秒）
-    // ---------------------------------------------------------------
-    private suspend fun waitForInputElement(onStatus: (String) -> Unit): Boolean {
-        val checkJs = WebViewJsHelper.getCheckInputExistsJs(inputSelectors, manualInputSelector)
-        for (wait in 0 until 20) {
-            val result = normalizeJsResult(evaluateJsSync(checkJs))
-            if (result == "ready") return true
-            onStatus("入力欄の読み込み待ち... (${wait + 1}/20)")
-            delay(1000)
-        }
-        return false
-    }
+        // GikobunAI方式の統合JS
+        val js = buildAllInOneJs(promptB64, inputSelArr, sendSelArr, responseSelArr)
 
-    // ---------------------------------------------------------------
-    // Phase 3: プロンプト注入 → 反映確認 → 送信（最大3回リトライ）
-    // ---------------------------------------------------------------
-    private suspend fun injectAndSend(janCode: String, prompt: String, onStatus: (String) -> Unit): Boolean {
-        for (retry in 0 until 3) {
-            onStatus("$janCode プロンプト注入中... (試行 ${retry + 1}/3)")
-
-            // 3-1. プロンプト注入
-            val injectJs = WebViewJsHelper.getInjectPromptJsWithFallback(inputSelectors, manualInputSelector, prompt)
-            val injectResult = normalizeJsResult(evaluateJsSync(injectJs))
-            if (injectResult != "true") {
-                Log.w(TAG, "Inject failed: result=$injectResult")
-                delay(2000)
-                continue
-            }
-
-            // 3-2. エディタに内容が反映されるまで確認（最大5秒）
-            val contentCheckJs = WebViewJsHelper.getCheckInputHasContentJs(inputSelectors, manualInputSelector)
-            var contentReady = false
-            for (checkWait in 0 until 10) {
-                delay(500)
-                val contentResult = normalizeJsResult(evaluateJsSync(contentCheckJs))
-                if (contentResult == "has_content") {
-                    contentReady = true
-                    break
-                }
-            }
-            if (!contentReady) {
-                Log.w(TAG, "Content not reflected in editor after inject")
-                delay(1000)
-                continue
-            }
-
-            // 3-3. 送信前にレスポンス要素数を記録
-            val countJs = WebViewJsHelper.getCountResponseElementsJs(responseSelectors, manualResponseSelector)
-            val prevCountStr = normalizeJsResult(evaluateJsSync(countJs))
-            prevResponseCount = prevCountStr?.toIntOrNull() ?: 0
-
-            // 3-4. 送信ボタンクリック
-            delay(500)
-            val sendJs = WebViewJsHelper.getClickSendJsWithFallback(sendSelectors, manualSendButtonSelector)
-            val sendResult = normalizeJsResult(evaluateJsSync(sendJs))
-            if (sendResult == "true") {
-                return true // 成功
-            }
-
-            Log.w(TAG, "Send button click failed: result=$sendResult")
-            delay(2000)
-        }
-        return false // 3回リトライしても失敗
-    }
-
-    // ---------------------------------------------------------------
-    // Phase 4: レスポンスポーリング（最大45秒）
-    // ---------------------------------------------------------------
-    private suspend fun pollResponse(janCode: String, onStatus: (String) -> Unit): AiResponseData? {
-        val countJs = WebViewJsHelper.getCountResponseElementsJs(responseSelectors, manualResponseSelector)
-        val extractJs = WebViewJsHelper.getExtractResponseJsWithFallback(responseSelectors, manualResponseSelector)
-
-        for (i in 0 until 45) {
-            onStatus("$janCode レスポンス待ち... (${i + 1}/45)")
-
-            // 新しいレスポンス要素が増えたかチェック
-            val currentCountStr = normalizeJsResult(evaluateJsSync(countJs))
-            val currentCount = currentCountStr?.toIntOrNull() ?: 0
-            if (currentCount <= prevResponseCount) {
-                delay(1000)
-                continue
-            }
-
-            // 新レスポンスが出現したので内容を取得
-            val rawResponse = normalizeJsResult(evaluateJsSync(extractJs))
-            if (!rawResponse.isNullOrBlank()) {
-                when (val parseResult = AiResponseParser.parseResponse(rawResponse, janCode)) {
-                    is AiParseResult.Success -> return parseResult.data
-                    is AiParseResult.NotFound -> return AiResponseData(jan_code = janCode, not_found = true)
-                    is AiParseResult.JanMismatch -> {
-                        onStatus("JAN不一致: ${parseResult.actual}")
+        // JSを実行し、AndroidBridge.onResult() コールバックを待つ
+        val rawResponse: String? = try {
+            withTimeout(90_000L) { // 90秒タイムアウト
+                suspendCancellableCoroutine { continuation ->
+                    pendingResultCallback = { result ->
+                        if (continuation.isActive) {
+                            continuation.resume(result)
+                        }
                     }
-                    is AiParseResult.InvalidFormat -> {
-                        // まだ生成途中の可能性 → ポーリング続行
+                    mainHandler.post {
+                        wv.evaluateJavascript(js, null)
                     }
                 }
             }
-            delay(1000)
+        } catch (e: TimeoutCancellationException) {
+            pendingResultCallback = null
+            return FetchResult(false, errorMessage = "タイムアウト（90秒）")
         }
-        return null
+
+        if (rawResponse.isNullOrBlank()) {
+            return FetchResult(false, errorMessage = "AIからのレスポンスが空でした")
+        }
+
+        onStatus("$janCode パース中...")
+
+        // レスポンスをパース
+        return when (val parseResult = AiResponseParser.parseResponse(rawResponse, janCode)) {
+            is AiParseResult.Success -> FetchResult(true, data = parseResult.data)
+            is AiParseResult.NotFound -> FetchResult(true, data = AiResponseData(jan_code = janCode, not_found = true))
+            is AiParseResult.JanMismatch -> FetchResult(false, errorMessage = "JAN不一致: expected=$janCode, actual=${parseResult.actual}")
+            is AiParseResult.InvalidFormat -> FetchResult(false, errorMessage = "レスポンスの形式が不正です")
+        }
     }
 
     // ---------------------------------------------------------------
-    // WebView経由のレスポンス手動取り込み（UI上のボタンから呼ばれる用）
+    // 手動取り込み（既存レスポンスの取得用）
     // ---------------------------------------------------------------
     suspend fun extractCurrentResponse(janCode: String): AiParseResult? {
-        val extractJs = WebViewJsHelper.getExtractResponseJsWithFallback(responseSelectors, manualResponseSelector)
-        val rawResponse = normalizeJsResult(evaluateJsSync(extractJs))
-        if (rawResponse.isNullOrBlank()) return null
-        return AiResponseParser.parseResponse(rawResponse, janCode)
+        val wv = webView ?: return null
+        val allResponseSelectors = buildSelectorList(responseSelectors, manualResponseSelector)
+        val responseSelArr = allResponseSelectors.joinToString(",") { "'$it'" }
+
+        val extractJs = """
+(function() {
+    var selectors = [$responseSelArr];
+    for (var i = 0; i < selectors.length; i++) {
+        try {
+            var els = document.querySelectorAll(selectors[i]);
+            if (els.length > 0) {
+                var lastEl = els[els.length - 1];
+                var text = lastEl.innerText || lastEl.textContent || '';
+                text = text.trim();
+                if (text.length > 5) return text;
+            }
+        } catch(e) {}
+    }
+    return null;
+})();
+        """.trimIndent()
+
+        val rawResponse = evaluateJsSync(extractJs)
+        val cleaned = normalizeJsResult(rawResponse)
+        if (cleaned.isNullOrBlank()) return null
+        return AiResponseParser.parseResponse(cleaned, janCode)
     }
 
     // ---------------------------------------------------------------
-    // evaluateJavascript ラッパー（タイムアウト付き）
+    // GikobunAI方式: 統合JS生成
+    // 「要素待ち→execCommand注入→送信→レスポンス安定判定→コールバック」を
+    // 1つのJS内で完結させる.
     // ---------------------------------------------------------------
+    private fun buildAllInOneJs(
+        promptB64: String,
+        inputSelArr: String,
+        sendSelArr: String,
+        responseSelArr: String
+    ): String {
+        return """
+(function() {
+    var b64 = '$promptB64';
+    var bytes = Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); });
+    var prompt = new TextDecoder('utf-8').decode(bytes);
+
+    var inputSelectors = [$inputSelArr];
+    var sendSelectors = [$sendSelArr];
+    var responseSelectors = [$responseSelArr];
+
+    /* ---- Phase 1: 入力欄を探す（最大20秒 = 300ms × 66回） ---- */
+    var findTries = 0;
+    var findMax = 66;
+    function findInput() {
+        for (var i = 0; i < inputSelectors.length; i++) {
+            try {
+                var el = document.querySelector(inputSelectors[i]);
+                if (el) return el;
+            } catch(e) {}
+        }
+        return null;
+    }
+
+    function waitForInput() {
+        var el = findInput();
+        if (el) {
+            doInject(el);
+            return;
+        }
+        findTries++;
+        if (findTries >= findMax) {
+            JanBridge.onError('入力欄が見つかりません');
+            return;
+        }
+        setTimeout(waitForInput, 300);
+    }
+
+    /* ---- Phase 2: プロンプト注入 (execCommand方式 = GikobunAI実証済み) ---- */
+    function doInject(el) {
+        el.focus();
+
+        /* contenteditable の場合: カーソルを中の<p>等に設置 */
+        var p = el.querySelector('p');
+        if (p) {
+            var range = document.createRange();
+            range.selectNodeContents(p);
+            range.collapse(false);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+
+        /* 全選択→削除→挿入 (Chrome WebViewで最も安定する方法) */
+        document.execCommand('selectAll', false, null);
+        document.execCommand('delete', false, null);
+        document.execCommand('insertText', false, prompt);
+
+        /* Phase 3: 送信（800ms後） */
+        setTimeout(function() { doSend(el); }, 800);
+    }
+
+    /* ---- Phase 3: 送信ボタン押下 ---- */
+    function doSend(inputEl) {
+        var sent = false;
+        for (var i = 0; i < sendSelectors.length; i++) {
+            try {
+                var btn = document.querySelector(sendSelectors[i]);
+                if (btn && !btn.disabled) {
+                    btn.click();
+                    sent = true;
+                    break;
+                }
+            } catch(e) {}
+        }
+        /* ボタンが見つからなければEnterキー送信 */
+        if (!sent) {
+            try {
+                inputEl.dispatchEvent(new KeyboardEvent('keydown', {
+                    key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                    bubbles: true, cancelable: true
+                }));
+            } catch(e) {}
+        }
+
+        /* Phase 4: レスポンス安定判定（GikobunAI方式: setIntervalポーリング） */
+        var lastLen = 0;
+        var stableCnt = 0;
+        var pollCount = 0;
+        var maxPoll = 160; /* 500ms × 160 = 80秒 */
+        var t = setInterval(function() {
+            pollCount++;
+            if (pollCount > maxPoll) {
+                clearInterval(t);
+                JanBridge.onError('レスポンスタイムアウト');
+                return;
+            }
+            for (var i = 0; i < responseSelectors.length; i++) {
+                try {
+                    var els = document.querySelectorAll(responseSelectors[i]);
+                    if (els.length > 0) {
+                        var lastEl = els[els.length - 1];
+                        var text = (lastEl.innerText || lastEl.textContent || '').trim();
+                        var currentLen = text.length;
+                        if (currentLen > 40 && currentLen === lastLen) {
+                            stableCnt++;
+                        } else {
+                            stableCnt = 0;
+                        }
+                        lastLen = currentLen;
+                        /* 6回連続安定 (= 3秒間変化なし) で完了とみなす */
+                        if (stableCnt >= 6) {
+                            clearInterval(t);
+                            JanBridge.onResult(text);
+                            return;
+                        }
+                        break; /* 最初にヒットしたセレクタだけ使う */
+                    }
+                } catch(e) {}
+            }
+        }, 500);
+    }
+
+    /* 実行開始 */
+    waitForInput();
+})();
+        """.trimIndent()
+    }
+
+    // ---------------------------------------------------------------
+    // ヘルパー
+    // ---------------------------------------------------------------
+    private fun buildSelectorList(selectors: List<String>, manual: String?): List<String> {
+        return (if (manual.isNullOrEmpty()) emptyList() else listOf(manual)) + selectors
+    }
+
     private suspend fun evaluateJsSync(script: String): String? {
         val wv = webView ?: return null
         return try {
@@ -245,21 +354,12 @@ class AiWebViewInteractor {
                     }
                 }
             }
-        } catch (e: TimeoutCancellationException) {
-            Log.w(TAG, "evaluateJsSync timed out")
-            null
-        }
+        } catch (e: TimeoutCancellationException) { null }
     }
 
-    // ---------------------------------------------------------------
-    // evaluateJavascript の返り値を正規化
-    // Android WebView は JS文字列を "\"value\"" の形で返すため外側のクォート等を除去
-    // ---------------------------------------------------------------
     private fun normalizeJsResult(raw: String?): String? {
         if (raw == null || raw == "null" || raw == "\"null\"") return null
-        return raw
-            .trim()
-            .removeSurrounding("\"")
+        return raw.trim().removeSurrounding("\"")
             .replace("\\\"", "\"")
             .replace("\\n", "\n")
             .replace("\\t", "\t")
