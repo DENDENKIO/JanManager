@@ -47,7 +47,8 @@ fun JanManagerNavGraph(navController: NavHostController) {
             val route = backStackEntry.toRoute<Route.ProductDetail>()
             ProductDetailScreen(
                 janCode = route.janCode,
-                onNavigateToDetail = { jan -> navController.navigate(Route.ProductDetail(jan)) }
+                onNavigateToDetail = { jan -> navController.navigate(Route.ProductDetail(jan)) },
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable<Route.AiFetch> {

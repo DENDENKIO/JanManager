@@ -35,7 +35,7 @@ data class RecentScan(
 )
 
 enum class LinkageSlot {
-    OLD_JAN, NEW_JAN, PACKAGE
+    PIECE, PACK, CASE
 }
 
 @HiltViewModel
@@ -102,18 +102,24 @@ class ScanViewModel @Inject constructor(
     private var sendSelectors: List<String> = WebViewJsHelper.GEMINI_SEND_SELECTORS
     private var responseSelectors: List<String> = WebViewJsHelper.GEMINI_RESPONSE_SELECTORS
 
-    // Linkage Mode State
-    private val _activeLinkageSlot = MutableStateFlow(LinkageSlot.OLD_JAN)
+    // Linkage Mode State (Packaging Units)
+    private val _activeLinkageSlot = MutableStateFlow(LinkageSlot.PIECE)
     val activeLinkageSlot = _activeLinkageSlot.asStateFlow()
     
-    private val _linkageOldJan = MutableStateFlow("")
-    val linkageOldJan = _linkageOldJan.asStateFlow()
+    private val _linkagePieceJan = MutableStateFlow("")
+    val linkagePieceJan = _linkagePieceJan.asStateFlow()
     
-    private val _linkageNewJan = MutableStateFlow("")
-    val linkageNewJan = _linkageNewJan.asStateFlow()
+    private val _linkagePackJan = MutableStateFlow("")
+    val linkagePackJan = _linkagePackJan.asStateFlow()
 
-    private val _linkagePackage = MutableStateFlow("")
-    val linkagePackage = _linkagePackage.asStateFlow()
+    private val _linkageCaseJan = MutableStateFlow("")
+    val linkageCaseJan = _linkageCaseJan.asStateFlow()
+
+    private val _linkagePackQty = MutableStateFlow(6)
+    val linkagePackQty = _linkagePackQty.asStateFlow()
+
+    private val _linkageCaseQty = MutableStateFlow(12)
+    val linkageCaseQty = _linkageCaseQty.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -149,11 +155,6 @@ class ScanViewModel @Inject constructor(
     fun setTab(tab: ScanModeTab) {
         _currentTab.value = tab
     }
-    
-    fun setLinkageSlot(slot: LinkageSlot) {
-        _activeLinkageSlot.value = slot
-    }
-
     fun processBarcode(barcode: String) {
         val type = JanCodeUtil.detectCodeType(barcode)
         
@@ -187,33 +188,75 @@ class ScanViewModel @Inject constructor(
             }
             ScanModeTab.LINKAGE -> {
                 when (_activeLinkageSlot.value) {
-                    LinkageSlot.OLD_JAN -> {
-                        _linkageOldJan.value = normalizedBarcode
-                        _activeLinkageSlot.value = LinkageSlot.NEW_JAN
+                    LinkageSlot.PIECE -> {
+                        _linkagePieceJan.value = normalizedBarcode
+                        _activeLinkageSlot.value = LinkageSlot.PACK
                     }
-                    LinkageSlot.NEW_JAN -> {
-                        _linkageNewJan.value = normalizedBarcode
-                        _activeLinkageSlot.value = LinkageSlot.PACKAGE
+                    LinkageSlot.PACK -> {
+                        _linkagePackJan.value = normalizedBarcode
+                        _activeLinkageSlot.value = LinkageSlot.CASE
                     }
-                    LinkageSlot.PACKAGE -> {
-                        _linkagePackage.value = normalizedBarcode
+                    LinkageSlot.CASE -> {
+                        _linkageCaseJan.value = normalizedBarcode
                     }
                 }
             }
         }
     }
     
-    fun executeLinkage() {
+    fun setLinkageSlot(slot: LinkageSlot) {
+        _activeLinkageSlot.value = slot
+    }
+
+    fun clearLinkageSlot(slot: LinkageSlot) {
+        when (slot) {
+            LinkageSlot.PIECE -> _linkagePieceJan.value = ""
+            LinkageSlot.PACK -> _linkagePackJan.value = ""
+            LinkageSlot.CASE -> _linkageCaseJan.value = ""
+        }
+    }
+
+    fun setPackQty(qty: Int) { _linkagePackQty.value = qty }
+    fun setCaseQty(qty: Int) { _linkageCaseQty.value = qty }
+
+    fun executePackageLinkage() {
         viewModelScope.launch {
-            if (_linkageOldJan.value.isNotEmpty() && _linkageNewJan.value.isNotEmpty()) {
-                productRepository.linkRenewal(_linkageOldJan.value, _linkageNewJan.value)
+            val pieceJan = _linkagePieceJan.value
+            if (pieceJan.isEmpty()) return@launch
+
+            val product = productRepository.getProductByJan(pieceJan) ?: return@launch
+
+            // Pack Unit
+            if (_linkagePackJan.value.isNotEmpty()) {
+                val packUnit = com.example.janmanager.data.local.entity.PackageUnit(
+                    productId = product.id,
+                    barcode = _linkagePackJan.value,
+                    barcodeType = JanCodeUtil.detectCodeType(_linkagePackJan.value),
+                    packageType = com.example.janmanager.data.local.entity.PackageType.PACK,
+                    packageLabel = "パック",
+                    quantityPerUnit = _linkagePackQty.value
+                )
+                productRepository.addPackageUnit(packUnit)
+            }
+
+            // Case Unit
+            if (_linkageCaseJan.value.isNotEmpty()) {
+                val caseUnit = com.example.janmanager.data.local.entity.PackageUnit(
+                    productId = product.id,
+                    barcode = _linkageCaseJan.value,
+                    barcodeType = JanCodeUtil.detectCodeType(_linkageCaseJan.value),
+                    packageType = com.example.janmanager.data.local.entity.PackageType.CASE,
+                    packageLabel = "ケース",
+                    quantityPerUnit = _linkageCaseQty.value
+                )
+                productRepository.addPackageUnit(caseUnit)
             }
             
             // clear
-            _linkageOldJan.value = ""
-            _linkageNewJan.value = ""
-            _linkagePackage.value = ""
-            _activeLinkageSlot.value = LinkageSlot.OLD_JAN
+            _linkagePieceJan.value = ""
+            _linkagePackJan.value = ""
+            _linkageCaseJan.value = ""
+            _activeLinkageSlot.value = LinkageSlot.PIECE
         }
     }
 

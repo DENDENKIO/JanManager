@@ -6,10 +6,10 @@ enum class ProductStatus {
     RENEWED
 }
 
-enum class PackageType {
-    PIECE,
-    PACK,
-    CASE
+enum class PackageType(val displayName: String) {
+    PIECE("単品"),
+    PACK("パック"),
+    CASE("ケース")
 }
 
 enum class BarcodeType {

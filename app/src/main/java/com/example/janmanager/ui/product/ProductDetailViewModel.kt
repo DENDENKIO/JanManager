@@ -75,4 +75,10 @@ class ProductDetailViewModel @Inject constructor(
             repository.addPackageUnit(newUnit)
         }
     }
+
+    fun deletePackageUnit(unit: PackageUnit) {
+        viewModelScope.launch {
+            repository.deletePackageUnit(unit)
+        }
+    }
 }

@@ -94,6 +94,10 @@ class ProductRepository @Inject constructor(
         return packageUnitDao.getPackageUnitByBarcode(barcode)
     }
 
+    suspend fun deletePackageUnit(unit: PackageUnit) {
+        packageUnitDao.delete(unit)
+    }
+
     suspend fun deleteAllProducts() {
         productDao.deleteAll()
     }
