@@ -51,6 +51,11 @@ class AiFetchViewModel @Inject constructor(
     private val interactor = AiWebViewInteractor()
     private var targetBaseUrl: String = "gemini.google.com"
 
+    // 修正: 現在処理中の商品をスナップショットで保持
+    // DB保存後に unfetchedProducts の Flow が再発火しても
+    // この変数が指す商品は変わらない
+    private var currentProductSnapshot: ProductMaster? = null
+
     init {
         viewModelScope.launch {
             repository.getUnfetchedProducts().collect { products ->
@@ -104,77 +109,76 @@ class AiFetchViewModel @Inject constructor(
         if (_uiState.value.unfetchedProducts.isEmpty()) return
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
-            // ★ 開始時点のリストのスナップショットを取る（Flowの更新でずれるのを防ぐ）
-            val productsToFetch = _uiState.value.unfetchedProducts.toList()
+            // 修正点: 開始時にリストをスナップショットとして固定する
+            // → DB保存後に unfetchedProducts が縮小してもインデックスがズれない
+            val productsSnapshot = _uiState.value.unfetchedProducts.toList()
+
             _uiState.value = _uiState.value.copy(isRunning = true, currentIndex = 0)
-
-            for (index in productsToFetch.indices) {
-                if (!_uiState.value.isRunning) break
-
-                val product = productsToFetch[index]
+            var index = 0
+            while (index < productsSnapshot.size && _uiState.value.isRunning) {
+                // リストの再発火に左右されないようスナップショットから取得
+                val product = productsSnapshot[index]
+                // onAcceptResult が参照できるようフィールドに保持
+                currentProductSnapshot = product
                 _uiState.value = _uiState.value.copy(currentIndex = index)
 
                 val result = interactor.executeFullFlow(product.janCode, targetBaseUrl) { status ->
                     _uiState.value = _uiState.value.copy(currentStatus = status)
                 }
 
-                if (result.success && result.data != null) {
+                if (result.success && result.data != null && _uiState.value.isRunning) {
                     _uiState.value = _uiState.value.copy(
-                        currentStatus = "取得成功: ${product.janCode} → 保存中..."
+                        lastResult = result.data,
+                        showPreview = true,
+                        currentStatus = "取得成功"
                     )
-                    // ★ 自動保存（プレビュー確認なし）
-                    saveResult(product, result.data)
+                    // ユーザーが承認/却下するまで待機
+                    _proceedSignal.first()
+                } else if (_uiState.value.isRunning) {
                     _uiState.value = _uiState.value.copy(
-                        currentStatus = "保存完了: ${product.janCode}"
+                        currentStatus = "エラー: ${result.errorMessage ?: "不明なエラー"}"
                     )
-                    // 次の商品へ進む前に少し待機（AIサイトの負荷軽減）
                     delay(2000)
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        currentStatus = "エラー: ${product.janCode} - ${result.errorMessage ?: "不明"}"
-                    )
-                    delay(3000)
+                }
+
+                if (_uiState.value.isRunning) {
+                    index++
                 }
             }
-            _uiState.value = _uiState.value.copy(
-                isRunning = false,
-                currentStatus = "完了（${productsToFetch.size}件処理）"
-            )
+            currentProductSnapshot = null
+            _uiState.value = _uiState.value.copy(isRunning = false, currentStatus = "完了")
         }
     }
 
     fun stopFetch() {
+        currentProductSnapshot = null
         _uiState.value = _uiState.value.copy(isRunning = false, currentStatus = "停止中")
         fetchJob?.cancel()
-    }
-
-    private suspend fun saveResult(product: ProductMaster, result: AiResponseData) {
-        if (result.not_found) return  // 見つからなかった商品はスキップ
-
-        val updatedProduct = product.copy(
-            makerName = result.maker_name,
-            makerNameKana = result.maker_name_kana,
-            productName = result.product_name,
-            productNameKana = result.product_name_kana,
-            spec = result.spec,
-            infoFetched = true,
-            infoSource = if (_uiState.value.aiUrl.orEmpty().contains("gemini"))
-                InfoSource.AI_GEMINI else InfoSource.AI_PERPLEXITY,
-            updatedAt = System.currentTimeMillis()
-        )
-        repository.updateProduct(updatedProduct)
-        if (result.maker_name.isNotEmpty()) {
-            val prefix = product.janCode.take(7)
-            repository.cacheMaker(prefix, result.maker_name, result.maker_name_kana)
-        }
     }
 
     fun onAcceptResult() {
         viewModelScope.launch {
             val result = _uiState.value.lastResult ?: return@launch
-            val product = _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
+            // 修正点: unfetchedProductsのリストの代わりにスナップショットを使用
+            // → DB保存直後にリストが再発火されても正しい商品に保存できる
+            val product = currentProductSnapshot
+                ?: _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
                 ?: return@launch
-            saveResult(product, result)
+            val updatedProduct = product.copy(
+                makerName = result.maker_name,
+                makerNameKana = result.maker_name_kana,
+                productName = result.product_name,
+                productNameKana = result.product_name_kana,
+                spec = result.spec,
+                infoFetched = true,
+                infoSource = if (_uiState.value.aiUrl.orEmpty().contains("gemini")) InfoSource.AI_GEMINI else InfoSource.AI_PERPLEXITY,
+                updatedAt = System.currentTimeMillis()
+            )
+            repository.updateProduct(updatedProduct)
+            if (result.maker_name.isNotEmpty()) {
+                val prefix = product.janCode.take(7)
+                repository.cacheMaker(prefix, result.maker_name, result.maker_name_kana)
+            }
             _uiState.value = _uiState.value.copy(showPreview = false, lastResult = null)
             _proceedSignal.tryEmit(Unit)
         }
