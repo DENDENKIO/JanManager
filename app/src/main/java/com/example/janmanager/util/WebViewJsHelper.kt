@@ -2,153 +2,282 @@ package com.example.janmanager.util
 
 object WebViewJsHelper {
 
+    // ---------------------------------------------------------------
+    // Gemini selectors (2025+)
+    // ---------------------------------------------------------------
     val GEMINI_INPUT_SELECTORS = listOf(
+        // 現行 Gemini: rich-textarea 内の contenteditable
+        "rich-textarea .ql-editor",
+        "rich-textarea div[contenteditable='true']",
+        // フォールバック
         "div.ql-editor[contenteditable='true']",
         "div[contenteditable='true'].ProseMirror",
-        "rich-textarea div[contenteditable]",
-        "div.input-area",
-        "textarea",
-        "[aria-label='プロンプトを入力してください']",
-        ".ql-editor"
+        "div[contenteditable='true']",
+        "textarea"
     )
 
     val GEMINI_SEND_SELECTORS = listOf(
+        // 現行 Gemini 送信ボタン
         "button[aria-label='プロンプトを送信']",
+        "button[aria-label='Send message']",
         "button[aria-label='Send prompt']",
+        "button[data-mat-icon-name='send']",
+        // jsaction 属性でマッチ
+        "button[jsaction*='send']",
+        "button[jsaction*='submit']",
+        // フォールバック
         "button.send-button",
-        "mat-icon[role='button']", // 送信アイコン自体がボタンの場合
-        "button.send"
+        "button[type='submit']"
     )
 
     val GEMINI_RESPONSE_SELECTORS = listOf(
-        ".response-content",
-        ".model-response-text",
-        "div.message-content",
-        "message-content",
+        // 現行 Gemini レスポンスカスタム要素
+        "model-response",
+        "message-content model-response",
+        // フォールバック
+        ".model-response-text p",
+        ".response-container",
+        "div[data-message-author-role='model']",
         ".prose"
     )
 
+    // ---------------------------------------------------------------
+    // Perplexity selectors (2025+)
+    // ---------------------------------------------------------------
     val PERPLEXITY_INPUT_SELECTORS = listOf(
-        "#ask-input",
+        // 現行 Perplexity: Lexical contenteditable
         "div[contenteditable='true'][data-lexical-editor='true']",
-        "textarea[placeholder*='質問']",
+        // textarea フォールバック
         "textarea[placeholder*='Ask']",
+        "textarea[placeholder*='質問']",
+        "textarea[placeholder*='Search']",
+        "#ask-input",
         "div[contenteditable='true']",
         "textarea"
     )
 
     val PERPLEXITY_SEND_SELECTORS = listOf(
-        "button[aria-label='送信']",
+        // 現行 Perplexity 送信ボタン
         "button[aria-label='Submit']",
-        "button.send-button",
-        "button[type='button'] svg[xlink\\:href='#pplx-icon-arrow-right']",
+        "button[aria-label='送信']",
+        // data-testid 系
+        "button[data-testid='send-button']",
+        // type=button でaria-label含む
+        "button[type='button'][aria-label]",
         "button[type='submit']",
-        "svg.fa-arrow-up"
+        "button.send-button"
     )
 
     val PERPLEXITY_RESPONSE_SELECTORS = listOf(
+        // 現行 Perplexity レスポンス
+        "div[data-testid='answer-content'] .prose",
         ".prose",
+        "div[class*='prose']",
+        // フォールバック
         ".message-content",
-        "div.answer",
-        ".selection-none"
+        "div[data-message-role='assistant']",
+        "div.answer"
     )
 
+    // ---------------------------------------------------------------
+    // Prompt Injection
+    // Lexical / ProseMirror / Quill / plain textarea すべてに対応
+    // ---------------------------------------------------------------
     fun getInjectPromptJsWithFallback(selectors: List<String>, manualSelector: String?, prompt: String): String {
         val escapedPrompt = escapeForJs(prompt)
         val allSelectors = (if (manualSelector.isNullOrEmpty()) emptyList() else listOf(manualSelector)) + selectors
         val selectorArray = allSelectors.joinToString(",") { "'$it'" }
-        
+
         return """
-            (function() {
-                var selectors = [$selectorArray];
-                var el = null;
-                for (var s of selectors) {
-                    try {
-                        el = document.querySelector(s);
-                        if (el) break;
-                    } catch(e) {}
-                }
-                if (!el) return false;
-                
-                el.focus();
-                
-                // Method 1: execCommand (Standard for contenteditable)
-                var success = false;
-                try {
-                    document.execCommand('selectAll', false, null);
-                    document.execCommand('delete', false, null);
-                    success = document.execCommand('insertText', false, '$escapedPrompt');
-                } catch(e) {
-                    success = false;
-                }
-                
-                // Method 2: Value setter logic (Standard for textarea/input)
-                if (!success || (el.innerText !== '$escapedPrompt' && el.value !== '$escapedPrompt')) {
-                    if (el.getAttribute('contenteditable') === 'true' || el.tagName === 'DIV') {
-                        el.innerText = '$escapedPrompt';
-                    } else {
-                        var nativeValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')
-                            || Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-                        if (nativeValueSetter && nativeValueSetter.set) {
-                            nativeValueSetter.set.call(el, '$escapedPrompt');
-                        } else {
-                            el.value = '$escapedPrompt';
-                        }
-                    }
-                }
-                
-                // Dispatch events to notify the site's framework (React/Vue/Lexical)
-                var eventNames = ['beforeinput', 'input', 'change', 'blur', 'keyup'];
-                eventNames.forEach(function(name) {
-                    var event;
-                    try {
-                        if (name === 'beforeinput') {
-                            event = new InputEvent(name, { bubbles: true, cancelable: true, inputType: 'insertText', data: '$escapedPrompt' });
-                        } else {
-                            event = new Event(name, { bubbles: true });
-                        }
-                        el.dispatchEvent(event);
-                    } catch(e) {}
-                });
-                
-                return true;
-            })();
+(function() {
+    var selectors = [$selectorArray];
+    var el = null;
+    for (var i = 0; i < selectors.length; i++) {
+        try {
+            var found = document.querySelector(selectors[i]);
+            if (found) { el = found; break; }
+        } catch(e) {}
+    }
+    if (!el) return 'false';
+
+    el.focus();
+
+    var text = '$escapedPrompt';
+    var isContentEditable = el.getAttribute('contenteditable') === 'true';
+
+    if (isContentEditable) {
+        // --- Lexical/ProseMirror/Quill 対応注入 ---
+        // 1. 全選択して削除
+        var selAll = new KeyboardEvent('keydown', { key: 'a', code: 'KeyA', keyCode: 65, ctrlKey: true, bubbles: true });
+        el.dispatchEvent(selAll);
+
+        // 2. execCommand で挿入（Chrome系では動作する）
+        try {
+            document.execCommand('selectAll', false, null);
+            document.execCommand('delete', false, null);
+        } catch(e) {}
+
+        // 3. DataTransfer を使って paste イベントで注入（Lexical推奨）
+        try {
+            var dt = new DataTransfer();
+            dt.setData('text/plain', text);
+            var pasteEvent = new ClipboardEvent('paste', {
+                bubbles: true, cancelable: true, clipboardData: dt
+            });
+            el.dispatchEvent(pasteEvent);
+        } catch(e) {}
+
+        // 4. paste後にinnerTextが空なら直接注入
+        if (!el.innerText || el.innerText.trim() === '') {
+            el.innerText = text;
+        }
+
+        // 5. フレームワーク向けイベント一式
+        try {
+            el.dispatchEvent(new InputEvent('beforeinput', {
+                bubbles: true, cancelable: true,
+                inputType: 'insertText', data: text
+            }));
+        } catch(e) {}
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+
+    } else {
+        // --- textarea / input 対応注入 ---
+        var proto = el.tagName === 'TEXTAREA'
+            ? window.HTMLTextAreaElement.prototype
+            : window.HTMLInputElement.prototype;
+        var setter = Object.getOwnPropertyDescriptor(proto, 'value');
+        if (setter && setter.set) {
+            setter.set.call(el, text);
+        } else {
+            el.value = text;
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    return 'true';
+})();
         """.trimIndent()
     }
 
+    // ---------------------------------------------------------------
+    // Send Button Click
+    // 送信後ボタンがdisabledになるものも考慮してMouseEvent付き
+    // ---------------------------------------------------------------
     fun getClickSendJsWithFallback(selectors: List<String>, manualSelector: String?): String {
         val allSelectors = (if (manualSelector.isNullOrEmpty()) emptyList() else listOf(manualSelector)) + selectors
         val selectorArray = allSelectors.joinToString(",") { "'$it'" }
         return """
-            (function() {
-                var selectors = [$selectorArray];
-                for (var s of selectors) {
-                    var el = document.querySelector(s);
-                    if (el) {
-                        el.click();
-                        return true;
-                    }
-                }
-                return false;
-            })();
+(function() {
+    var selectors = [$selectorArray];
+    for (var i = 0; i < selectors.length; i++) {
+        try {
+            var el = document.querySelector(selectors[i]);
+            if (el && !el.disabled) {
+                el.focus();
+                el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                el.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true }));
+                el.click();
+                return 'true';
+            }
+        } catch(e) {}
+    }
+    // Enterキー送信フォールバック（textarea等）
+    try {
+        var active = document.activeElement;
+        if (active) {
+            active.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'Enter', code: 'Enter', keyCode: 13,
+                bubbles: true, cancelable: true
+            }));
+            return 'true';
+        }
+    } catch(e) {}
+    return 'false';
+})();
         """.trimIndent()
     }
 
+    // ---------------------------------------------------------------
+    // Response Extraction
+    // 最後のメッセージブロックのテキストを取得
+    // ---------------------------------------------------------------
     fun getExtractResponseJsWithFallback(selectors: List<String>, manualSelector: String?): String {
         val allSelectors = (if (manualSelector.isNullOrEmpty()) emptyList() else listOf(manualSelector)) + selectors
         val selectorArray = allSelectors.joinToString(",") { "'$it'" }
         return """
-            (function() {
-                var selectors = [$selectorArray];
-                for (var s of selectors) {
-                    var els = document.querySelectorAll(s);
-                    if (els.length > 0) {
-                        var lastEl = els[els.length - 1];
-                        return lastEl.innerText;
-                    }
-                }
-                return null;
-            })();
+(function() {
+    var selectors = [$selectorArray];
+    for (var i = 0; i < selectors.length; i++) {
+        try {
+            var els = document.querySelectorAll(selectors[i]);
+            if (els.length > 0) {
+                var lastEl = els[els.length - 1];
+                var text = lastEl.innerText || lastEl.textContent || '';
+                text = text.trim();
+                if (text.length > 5) return text;
+            }
+        } catch(e) {}
+    }
+    return null;
+})();
+        """.trimIndent()
+    }
+
+    // ---------------------------------------------------------------
+    // Selector Auto-Detection (Settings画面用)
+    // ---------------------------------------------------------------
+    fun getAutoDetectSelectorsJs(): String {
+        return """
+(function() {
+    var result = { input: '', send: '', response: '' };
+
+    // Input
+    var inputCandidates = [
+        'div[contenteditable="true"][data-lexical-editor="true"]',
+        'rich-textarea div[contenteditable="true"]',
+        'div[contenteditable="true"].ql-editor',
+        'div[contenteditable="true"]',
+        'textarea'
+    ];
+    for (var s of inputCandidates) {
+        var el = document.querySelector(s);
+        if (el) { result.input = s; break; }
+    }
+
+    // Send
+    var sendCandidates = [
+        'button[aria-label]',
+        'button[type="submit"]',
+        'button[jsaction]'
+    ];
+    for (var s of sendCandidates) {
+        var btns = document.querySelectorAll(s);
+        for (var b of btns) {
+            var label = (b.getAttribute('aria-label') || '').toLowerCase();
+            if (label.includes('send') || label.includes('submit') ||
+                label.includes('送信') || label.includes('プロンプト')) {
+                result.send = s + '[aria-label="' + b.getAttribute('aria-label') + '"]';
+                break;
+            }
+        }
+        if (result.send) break;
+    }
+
+    // Response
+    var responseCandidates = [
+        'model-response', '.prose', 'div[data-message-author-role="model"]',
+        'div[data-testid="answer-content"]', '.message-content'
+    ];
+    for (var s of responseCandidates) {
+        var el = document.querySelector(s);
+        if (el) { result.response = s; break; }
+    }
+
+    return JSON.stringify(result);
+})();
         """.trimIndent()
     }
 
