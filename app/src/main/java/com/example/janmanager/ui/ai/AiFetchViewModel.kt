@@ -51,6 +51,10 @@ class AiFetchViewModel @Inject constructor(
     private val interactor = AiWebViewInteractor()
     private var targetBaseUrl: String = "gemini.google.com"
 
+    // 修正: 現在処理中の商品をリストに依存せずスナップショットとして保持する
+    // これによりDB保存後にリストが再発火されてもインデックスズれが発生しない
+    private var currentProductSnapshot: ProductMaster? = null
+
     init {
         viewModelScope.launch {
             repository.getUnfetchedProducts().collect { products ->
@@ -104,11 +108,20 @@ class AiFetchViewModel @Inject constructor(
         if (_uiState.value.unfetchedProducts.isEmpty()) return
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
+            // 修正: 開始時にリストをスナップショットとして固定する
+            // DB履歴がFlowで自動更新されてもこのリストは変わらない
+            val productsSnapshot = _uiState.value.unfetchedProducts.toList()
             _uiState.value = _uiState.value.copy(isRunning = true, currentIndex = 0)
-            while (_uiState.value.currentIndex < _uiState.value.unfetchedProducts.size
-                && _uiState.value.isRunning
-            ) {
-                val product = _uiState.value.unfetchedProducts[_uiState.value.currentIndex]
+
+            var index = 0
+            while (index < productsSnapshot.size && _uiState.value.isRunning) {
+                // 修正: リスト履歴の再発火に左右されないようスナップショットから取得
+                val product = productsSnapshot[index]
+                currentProductSnapshot = product
+
+                // UIの現在位置表示を更新（表示用のみ、処理はスナップショット依存）
+                _uiState.value = _uiState.value.copy(currentIndex = index)
+
                 val result = interactor.executeFullFlow(product.janCode, targetBaseUrl) { status ->
                     _uiState.value = _uiState.value.copy(currentStatus = status)
                 }
@@ -129,14 +142,16 @@ class AiFetchViewModel @Inject constructor(
                 }
 
                 if (_uiState.value.isRunning) {
-                    _uiState.value = _uiState.value.copy(currentIndex = _uiState.value.currentIndex + 1)
+                    index++
                 }
             }
-            _uiState.value = _uiState.value.copy(isRunning = false, currentStatus = "完了")
+            currentProductSnapshot = null
+            _uiState.value = _uiState.value.copy(isRunning = false, currentStatus = "完了", currentIndex = -1)
         }
     }
 
     fun stopFetch() {
+        currentProductSnapshot = null
         _uiState.value = _uiState.value.copy(isRunning = false, currentStatus = "停止中")
         fetchJob?.cancel()
     }
@@ -144,7 +159,8 @@ class AiFetchViewModel @Inject constructor(
     fun onAcceptResult() {
         viewModelScope.launch {
             val result = _uiState.value.lastResult ?: return@launch
-            val product = _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex) ?: return@launch
+            // 修正: unfetchedProductsリストでなくスナップショットから取得→JAN不一致排除
+            val product = currentProductSnapshot ?: return@launch
             val updatedProduct = product.copy(
                 makerName = result.maker_name,
                 makerNameKana = result.maker_name_kana,
@@ -171,14 +187,20 @@ class AiFetchViewModel @Inject constructor(
     }
 
     fun copyPromptToClipboard(context: Context) {
-        val product = _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex) ?: return
+        // 修正: スナップショットから取得
+        val product = currentProductSnapshot
+            ?: _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
+            ?: return
         val prompt = AiPromptBuilder.buildPrompt(product.janCode)
         ClipboardHelper.copyToClipboard(context, prompt)
     }
 
     fun tryManualCapture(context: Context) {
         viewModelScope.launch {
-            val product = _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex) ?: return@launch
+            // 修正: スナップショットから取得
+            val product = currentProductSnapshot
+                ?: _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
+                ?: return@launch
 
             // WebViewから取得を試みる
             var parseResult = interactor.extractCurrentResponse(product.janCode)
