@@ -281,6 +281,64 @@ object WebViewJsHelper {
         """.trimIndent()
     }
 
+    // ---------------------------------------------------------------
+    // DOM Existence / Content Check / Response Count
+    // ---------------------------------------------------------------
+
+    /**
+     * 指定セレクタのいずれかがDOMに存在するか確認するJS。
+     * 存在すれば 'ready'、なければ 'not_ready' を返す。
+     */
+    fun getCheckInputExistsJs(selectors: List<String>, manualSelector: String?): String {
+        val allSelectors = (if (manualSelector.isNullOrEmpty()) emptyList() else listOf(manualSelector)) + selectors
+        val checks = allSelectors.joinToString(" || ") { "document.querySelector('$it') !== null" }
+        return "(function(){ return ($checks) ? 'ready' : 'not_ready'; })();"
+    }
+
+    /**
+     * 入力欄にテキスト内容があるかチェックするJS。
+     * 10文字以上あれば 'has_content'、なければ 'empty' を返す。
+     */
+    fun getCheckInputHasContentJs(selectors: List<String>, manualSelector: String?): String {
+        val allSelectors = (if (manualSelector.isNullOrEmpty()) emptyList() else listOf(manualSelector)) + selectors
+        val selectorArray = allSelectors.joinToString(",") { "'$it'" }
+        return """
+(function() {
+    var selectors = [$selectorArray];
+    for (var i = 0; i < selectors.length; i++) {
+        try {
+            var el = document.querySelector(selectors[i]);
+            if (el) {
+                var text = el.innerText || el.value || '';
+                if (text.trim().length > 10) return 'has_content';
+            }
+        } catch(e) {}
+    }
+    return 'empty';
+})();
+        """.trimIndent()
+    }
+
+    /**
+     * レスポンス要素の数をカウントするJS。数値文字列を返す。
+     */
+    fun getCountResponseElementsJs(selectors: List<String>, manualSelector: String?): String {
+        val allSelectors = (if (manualSelector.isNullOrEmpty()) emptyList() else listOf(manualSelector)) + selectors
+        val selectorArray = allSelectors.joinToString(",") { "'$it'" }
+        return """
+(function() {
+    var selectors = [$selectorArray];
+    for (var i = 0; i < selectors.length; i++) {
+        try {
+            var els = document.querySelectorAll(selectors[i]);
+            if (els.length > 0) return '' + els.length;
+        } catch(e) {}
+    }
+    return '0';
+})();
+        """.trimIndent()
+    }
+
     private fun escapeForJs(text: String): String {
         return text
             .replace("\\", "\\\\")

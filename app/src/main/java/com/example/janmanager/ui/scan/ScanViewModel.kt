@@ -13,6 +13,7 @@ import com.example.janmanager.util.AiPromptBuilder
 import com.example.janmanager.util.AiResponseData
 import com.example.janmanager.util.AiResponseParser
 import com.example.janmanager.util.AiParseResult
+import com.example.janmanager.util.AiWebViewInteractor
 import com.example.janmanager.util.JanCodeUtil
 import com.example.janmanager.util.SoundHelper
 import com.example.janmanager.util.WebViewJsHelper
@@ -21,7 +22,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlin.coroutines.resume
 import javax.inject.Inject
 
 enum class ScanModeTab {
@@ -93,14 +93,8 @@ class ScanViewModel @Inject constructor(
     private val _aiUrl = MutableStateFlow<String?>(null)
     val aiUrl = _aiUrl.asStateFlow()
 
-    private var webView: WebView? = null
-    private var manualInputSelector: String? = null
-    private var manualSendButtonSelector: String? = null
-    private var manualResponseSelector: String? = null
-    
-    private var inputSelectors: List<String> = WebViewJsHelper.GEMINI_INPUT_SELECTORS
-    private var sendSelectors: List<String> = WebViewJsHelper.GEMINI_SEND_SELECTORS
-    private var responseSelectors: List<String> = WebViewJsHelper.GEMINI_RESPONSE_SELECTORS
+    private val interactor = AiWebViewInteractor()
+    private var targetBaseUrl: String = "gemini.google.com"
 
     // Linkage Mode State (Packaging Units)
     private val _activeLinkageSlot = MutableStateFlow(LinkageSlot.PIECE)
@@ -124,31 +118,38 @@ class ScanViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val aiSelection = settingsDataStore.aiSelectionFlow.first()
-            _aiUrl.value = if (aiSelection == "PERPLEXITY") {
-                "https://www.perplexity.ai/"
-            } else {
-                "https://gemini.google.com/app?hl=ja"
-            }
-            
+            val inputSel: List<String>
+            val sendSel: List<String>
+            val responseSel: List<String>
+
             if (aiSelection == "PERPLEXITY") {
-                inputSelectors = WebViewJsHelper.PERPLEXITY_INPUT_SELECTORS
-                sendSelectors = WebViewJsHelper.PERPLEXITY_SEND_SELECTORS
-                responseSelectors = WebViewJsHelper.PERPLEXITY_RESPONSE_SELECTORS
+                _aiUrl.value = "https://www.perplexity.ai/"
+                targetBaseUrl = "perplexity.ai"
+                inputSel = WebViewJsHelper.PERPLEXITY_INPUT_SELECTORS
+                sendSel = WebViewJsHelper.PERPLEXITY_SEND_SELECTORS
+                responseSel = WebViewJsHelper.PERPLEXITY_RESPONSE_SELECTORS
             } else {
-                inputSelectors = WebViewJsHelper.GEMINI_INPUT_SELECTORS
-                sendSelectors = WebViewJsHelper.GEMINI_SEND_SELECTORS
-                responseSelectors = WebViewJsHelper.GEMINI_RESPONSE_SELECTORS
+                _aiUrl.value = "https://gemini.google.com/app?hl=ja"
+                targetBaseUrl = "gemini.google.com"
+                inputSel = WebViewJsHelper.GEMINI_INPUT_SELECTORS
+                sendSel = WebViewJsHelper.GEMINI_SEND_SELECTORS
+                responseSel = WebViewJsHelper.GEMINI_RESPONSE_SELECTORS
             }
 
+            var manualInput: String? = null
+            var manualSend: String? = null
+            var manualResponse: String? = null
             val config = settingsDataStore.selectorConfigFlow.first()
             if (config.isNotEmpty()) {
                 val parts = config.split("|")
                 if (parts.size == 3) {
-                    manualInputSelector = parts[0].ifEmpty { null }
-                    manualSendButtonSelector = parts[1].ifEmpty { null }
-                    manualResponseSelector = parts[2].ifEmpty { null }
+                    manualInput = parts[0].ifEmpty { null }
+                    manualSend = parts[1].ifEmpty { null }
+                    manualResponse = parts[2].ifEmpty { null }
                 }
             }
+
+            interactor.configure(inputSel, sendSel, responseSel, manualInput, manualSend, manualResponse)
         }
     }
 
@@ -262,7 +263,7 @@ class ScanViewModel @Inject constructor(
 
     // AI Fetch Functions
     fun setWebView(wv: WebView) {
-        webView = wv
+        interactor.webView = wv
     }
 
     fun openAiFetchSheet() {
@@ -279,9 +280,16 @@ class ScanViewModel @Inject constructor(
         val janCode = _lastConfirmBarcode.value
         if (janCode.isEmpty()) return
         viewModelScope.launch {
-            _aiFetchStatus.value = "取得開始..."
-            performSingleAiFetchInternal(janCode)
-            _aiFetchStatus.value = if (_aiResultPreview.value != null) "取得完了" else "タイムアウト"
+            _aiFetchStatus.value = "実行中..."
+            val result = interactor.executeFullFlow(janCode, targetBaseUrl) { status ->
+                _aiFetchStatus.value = status
+            }
+            if (result.success && result.data != null) {
+                _aiResultPreview.value = result.data
+                _aiFetchStatus.value = "取得成功"
+            } else {
+                _aiFetchStatus.value = "エラー: ${result.errorMessage ?: "取得失敗"}"
+            }
         }
     }
 
@@ -289,114 +297,31 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             val unfetched = productRepository.getUnfetchedProducts().first()
             if (unfetched.isEmpty()) {
-                _aiFetchStatus.value = "未取得の商品はありません"
+                _aiFetchStatus.value = "未取得商品なし"
                 return@launch
             }
-            
-            _aiFetchStatus.value = "一括取得開始: ${unfetched.size}件"
+
+            _aiFetchStatus.value = "一括開始: ${unfetched.size}件"
             unfetched.forEachIndexed { index, product ->
                 _lastConfirmBarcode.value = product.janCode
-                _aiFetchStatus.value = "処理中 (${index + 1}/${unfetched.size}): ${product.janCode}"
-                
-                // 実際の取得処理（シングルのロジックを待機付きで実行）
-                performSingleAiFetchInternal(product.janCode)
-                
-                // プレビュー表示中にユーザーが承認するのを待つか、
-                // あるいは仕様により「自動一括」なら自動承認もあり得るが、
-                // ここでは一旦「1件ずつ確認」または「一定時間待機」の簡易実装とする。
-                // 今回は「1件終わるごとに3秒待機して次へ」とする。
-                delay(3000) 
-            }
-            _aiFetchStatus.value = "一括取得が完了しました"
-        }
-    }
+                _aiFetchStatus.value = "一括取得 (${index + 1}/${unfetched.size}): ${product.janCode}"
 
-    private suspend fun performSingleAiFetchInternal(janCode: String) {
-        // 0. Wait for WebView to be ready and on correct base URL
-        val targetBaseUrl = if (_aiUrl.value.orEmpty().contains("perplexity")) "perplexity.ai" else "gemini.google.com"
-        var isPageReady = false
-        for (wait in 0 until 10) {
-            val currentUrl = evaluateJsSync("window.location.href") ?: ""
-            if (currentUrl.contains(targetBaseUrl)) {
-                isPageReady = true
-                break
-            }
-            _aiFetchStatus.value = "ページ遷移待ち... (${wait+1}/10)"
-            delay(1000)
-        }
-        
-        if (!isPageReady) {
-            _aiFetchStatus.value = "エラー: ページ読み込み失敗"
-            return
-        }
+                val result = interactor.executeFullFlow(product.janCode, targetBaseUrl) { status ->
+                    _aiFetchStatus.value = "(${index + 1}/${unfetched.size}) $status"
+                }
 
-        val prompt = AiPromptBuilder.buildPrompt(janCode)
-        var lastError = ""
-        
-        // Retry Loop for Injection
-        for (retry in 0 until 3) {
-            _aiFetchStatus.value = "プロンプト注入中... (${retry + 1}/3)"
-            
-            val injectJs = WebViewJsHelper.getInjectPromptJsWithFallback(inputSelectors, manualInputSelector, prompt)
-            val injectSuccess = evaluateJsSync(injectJs) == "true"
-            
-            if (injectSuccess) {
-                delay(800)
-                val sendJs = WebViewJsHelper.getClickSendJsWithFallback(sendSelectors, manualSendButtonSelector)
-                val sendSuccess = evaluateJsSync(sendJs) == "true"
-                if (sendSuccess) {
-                    lastError = ""
-                    break 
+                if (result.success && result.data != null) {
+                    _aiResultPreview.value = result.data
+                    _aiFetchStatus.value = "(${index + 1}/${unfetched.size}) 取得成功: ${product.janCode}"
+                    // ユーザーが結果を確認する時間を取る
+                    // TODO: 将来的には承認待ちフローに変更することを推奨
+                    delay(3000)
                 } else {
-                    lastError = "送信ボタンが見つかりません"
-                }
-            } else {
-                lastError = "貼り付け失敗"
-            }
-            delay(2000)
-        }
-        
-        if (lastError.isNotEmpty()) {
-            _aiFetchStatus.value = "エラー: $lastError"
-            return
-        }
-        
-        delay(2000)
-        
-        for (i in 0 until 20) {
-            val extractJs = WebViewJsHelper.getExtractResponseJsWithFallback(responseSelectors, manualResponseSelector)
-            val rawResponse = evaluateJsSync(extractJs)
-            
-            if (rawResponse != null && rawResponse != "null" && rawResponse.length > 2) {
-                val cleanResponse = rawResponse.removePrefix("\"").removeSuffix("\"").replace("\\n", "\n").replace("\\\"", "\"")
-                when (val parseResult = AiResponseParser.parseResponse(cleanResponse, janCode)) {
-                    is AiParseResult.Success -> {
-                        _aiResultPreview.value = parseResult.data
-                        return
-                    }
-                    is AiParseResult.NotFound -> {
-                        _aiResultPreview.value = AiResponseData(jan_code = janCode, not_found = true)
-                        return
-                    }
-                    is AiParseResult.JanMismatch -> {
-                        _aiFetchStatus.value = "JAN不一致: ${parseResult.actual}"
-                    }
-                    is AiParseResult.InvalidFormat -> {
-                        // Still polling...
-                    }
+                    _aiFetchStatus.value = "(${index + 1}/${unfetched.size}) 失敗: ${result.errorMessage ?: "不明"}"
+                    delay(2000)
                 }
             }
-            delay(1000)
-        }
-    }
-
-    private suspend fun evaluateJsSync(script: String): String? {
-        return kotlin.coroutines.suspendCoroutine { continuation ->
-            webView?.post {
-                webView?.evaluateJavascript(script) { result ->
-                    continuation.resume(result)
-                }
-            }
+            _aiFetchStatus.value = "一括取得完了"
         }
     }
 
