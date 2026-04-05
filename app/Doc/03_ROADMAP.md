@@ -218,7 +218,7 @@ Phase 8：グループ商品管理画面
 AIへの指示プロンプト：
 
 Phase 8の作業を開始します。
-
+01_SPEC.md（セクション7）を読み込んでください。
 生成するファイル：
 - ui/group/GroupListScreen.kt（有効グループ＋終了済みグループ一覧、新規作成ボタン）
 - ui/group/GroupListViewModel.kt
@@ -237,6 +237,7 @@ Phase 9：発注支援画面
 AIへの指示プロンプト：
 
 Phase 9の作業を開始します。
+01_SPEC.md（セクション8）を読み込んでください。
 
 生成するファイル：
 - ui/order/OrderScanScreen.kt（セッション作成、連続スキャン、同一JAN重複トースト、終売品警告）
@@ -262,7 +263,7 @@ Phase 10：設定画面＋仕上げ
 AIへの指示プロンプト：
 
 Phase 10の作業を開始します。最終仕上げです。
-
+01_SPEC.md全体、02_TECH.md全体を読み込んでください。
 生成/更新するファイル：
 - ui/settings/SettingsScreen.kt（AI選択、WebViewログイン、セレクタ自動検出＋手動編集、貼り付け方式、ITF設定、スキャン音、フォーカスモード、データ管理）
 - ui/settings/SettingsViewModel.kt

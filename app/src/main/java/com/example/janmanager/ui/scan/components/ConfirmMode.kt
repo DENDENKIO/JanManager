@@ -1,25 +1,32 @@
 package com.example.janmanager.ui.scan.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.janmanager.ui.ai.components.AiResultPreview
+import com.example.janmanager.ui.ai.components.AiWebViewWrapper
 import com.example.janmanager.ui.scan.ScanViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfirmMode(viewModel: ScanViewModel) {
     val product by viewModel.confirmProduct.collectAsState()
     val lastBarcode by viewModel.lastConfirmBarcode.collectAsState()
+    
+    val showAiSheet by viewModel.showAiSheet.collectAsState()
+    val aiUrl by viewModel.aiUrl.collectAsState()
+    val aiStatus by viewModel.aiFetchStatus.collectAsState()
+    val aiResult by viewModel.aiResultPreview.collectAsState()
+    
+    val productTags by viewModel.confirmProductGroups.collectAsState()
 
     Column(
         modifier = Modifier
@@ -37,6 +44,29 @@ fun ConfirmMode(viewModel: ScanViewModel) {
                     Text("商品名: ${product?.productName}", modifier = Modifier.padding(top = 8.dp))
                     Text("メーカー: ${product?.makerName}")
                     Text("規格: ${product?.spec}")
+                    
+                    if (productTags.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            productTags.forEach { colorInt ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .background(Color(colorInt), MaterialTheme.shapes.extraSmall)
+                                )
+                            }
+                        }
+                    }
+
+                    if (product?.infoFetched == true) {
+                        SuggestionChip(
+                            onClick = { },
+                            label = { Text("取得済み") },
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
                 } else if (lastBarcode.isNotEmpty()) {
                     Text("商品未登録", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
                 }
@@ -44,11 +74,69 @@ fun ConfirmMode(viewModel: ScanViewModel) {
         }
 
         Button(
-            onClick = { /* TODO: Open BottomSheet WebView in later phase */ },
+            onClick = { viewModel.openAiFetchSheet() },
             modifier = Modifier.fillMaxWidth(),
-            enabled = lastBarcode.isNotEmpty() && product == null
+            enabled = lastBarcode.isNotEmpty()
         ) {
-            Text("AI情報取得")
+            Text(if (product?.infoFetched == true) "商品情報を再取得" else "AI情報取得")
+        }
+    }
+
+    if (showAiSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.closeAiFetchSheet() },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            modifier = Modifier.fillMaxHeight(0.9f)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header / Status
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("AI情報取得: $lastBarcode", fontWeight = FontWeight.Bold)
+                    Text(aiStatus, color = MaterialTheme.colorScheme.primary)
+                    Button(onClick = { viewModel.startSingleAiFetch() }) {
+                        Text("実行")
+                    }
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    val currentUrl = aiUrl
+                    if (currentUrl != null) {
+                        AiWebViewWrapper(
+                            url = currentUrl,
+                            onWebViewCreated = { viewModel.setWebView(it) },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                    
+                    if (aiResult != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.4f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AiResultPreview(
+                                result = aiResult!!,
+                                onAccept = { viewModel.acceptAiResult() },
+                                onReject = { viewModel.closeAiFetchSheet() }
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

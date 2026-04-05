@@ -49,22 +49,32 @@ fun JanManagerNavGraph(navController: NavHostController) {
             AiFetchScreen()
         }
         composable<Route.OrderScan> {
-            OrderScanScreen()
+            OrderScanScreen(onComplete = { navController.popBackStack() })
         }
         composable<Route.OrderList> { backStackEntry ->
             val route = backStackEntry.toRoute<Route.OrderList>()
             OrderListScreen(sessionId = route.sessionId)
         }
         composable<Route.GroupList> {
-            GroupListScreen()
+            GroupListScreen(
+                onNavigateToGroupDetail = { groupId -> navController.navigate(Route.GroupDetail(groupId)) },
+                onNavigateToGroupScan = { groupId -> navController.navigate(Route.GroupScan(groupId)) }
+            )
         }
         composable<Route.GroupScan> { backStackEntry ->
             val route = backStackEntry.toRoute<Route.GroupScan>()
-            GroupScanScreen(groupId = route.groupId)
+            GroupScanScreen(
+                groupId = route.groupId, 
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
         composable<Route.GroupDetail> { backStackEntry ->
             val route = backStackEntry.toRoute<Route.GroupDetail>()
-            GroupDetailScreen(groupId = route.groupId)
+            GroupDetailScreen(
+                groupId = route.groupId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToScan = { groupId -> navController.navigate(Route.GroupScan(groupId)) }
+            )
         }
         composable<Route.Settings> {
             SettingsScreen()

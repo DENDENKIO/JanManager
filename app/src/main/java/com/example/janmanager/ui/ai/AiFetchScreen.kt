@@ -1,59 +1,58 @@
 package com.example.janmanager.ui.ai
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.janmanager.ui.ai.components.AiResultPreview
 import com.example.janmanager.ui.ai.components.AiWebViewWrapper
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiFetchScreen(
     viewModel: AiFetchViewModel = hiltViewModel()
 ) {
-    val unfetched by viewModel.unfetchedProducts.collectAsState()
-    val fetchState by viewModel.fetchState.collectAsState()
-    val aiSelection by viewModel.aiSelection.collectAsState()
-    val targetProduct by viewModel.targetProduct.collectAsState()
-    val previewQueue by viewModel.previewQueue.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
 
-    var webViewInstance by remember { mutableStateOf<android.webkit.WebView?>(null) }
-
-    // Init js evaluator callback
-    viewModel.setJsEvaluator { js, callback ->
-        webViewInstance?.evaluateJavascript(js, callback)
+    // Scroll to current item
+    LaunchedEffect(uiState.currentIndex) {
+        if (uiState.currentIndex >= 0 && uiState.currentIndex < uiState.unfetchedProducts.size) {
+            listState.animateScrollToItem(uiState.currentIndex)
+        }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("AI情報取得") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                title = { Text("AI商品情報取得") },
+                actions = {
+                    if (!uiState.isRunning) {
+                        IconButton(onClick = { viewModel.startAutoFetch() }) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = "開始", tint = Color.Green)
+                        }
+                    } else {
+                        IconButton(onClick = { viewModel.stopFetch() }) {
+                            Icon(Icons.Default.Stop, contentDescription = "停止", tint = Color.Red)
+                        }
+                    }
+                }
             )
         }
     ) { padding ->
@@ -62,62 +61,106 @@ fun AiFetchScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Upper Area: List & Controls
+            // Upper half: List and Status
             Column(
                 modifier = Modifier
+                    .weight(1f)
                     .fillMaxWidth()
-                    .weight(0.5f)
-                    .padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                // Status Bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("未取得件数: ${unfetched.size} 件")
-                    Text("状態: ${fetchState.name}")
+                    Text(
+                        text = "ステータス: ${uiState.currentStatus}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (fetchState == FetchState.IDLE) {
-                        Button(onClick = { viewModel.startBulkFetch() }, enabled = unfetched.isNotEmpty()) {
-                            Text("一括取得開始")
-                        }
-                    } else {
-                        Button(onClick = { viewModel.stopFetch() }) {
-                            Text("停止")
-                        }
-                    }
-                    if (previewQueue.isNotEmpty()) {
-                        Button(onClick = { viewModel.savePreviewToDb() }) {
-                            Text("取得済みを保存(${previewQueue.size})")
-                        }
+
+                // Unfetched List
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    itemsIndexed(uiState.unfetchedProducts) { index, product ->
+                        val isCurrent = index == uiState.currentIndex
+                        ListItem(
+                            headlineContent = { Text(product.janCode) },
+                            supportingContent = { Text(product.makerName.ifEmpty { "(メーカー不明)" }) },
+                            colors = if (isCurrent) {
+                                ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                            } else {
+                                ListItemDefaults.colors()
+                            },
+                            trailingContent = {
+                                if (isCurrent && uiState.isRunning) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                }
+                            }
+                        )
+                        HorizontalDivider()
                     }
                 }
 
-                if (targetProduct != null) {
-                    Text("現在処理中: ${targetProduct?.janCode}", style = MaterialTheme.typography.titleMedium)
-                }
-
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(previewQueue) { product ->
-                        AiResultPreview(product = product)
+                // Manual Controls
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(onClick = { viewModel.copyPromptToClipboard(context) }) {
+                        Text("プロンプトコピー")
+                    }
+                    Button(onClick = { viewModel.tryManualCapture(context) }) {
+                        Text("取り込み")
                     }
                 }
             }
 
-            // Lower Area: WebView Browser
-            val url = if (aiSelection == "PERPLEXITY") "https://www.perplexity.ai/" else "https://gemini.google.com/"
-            Card(
+            // Lower half: WebView
+            Box(
                 modifier = Modifier
+                    .weight(1f)
                     .fillMaxWidth()
-                    .weight(0.5f)
-                    .padding(8.dp)
+                    .background(Color.Gray)
             ) {
-                AiWebViewWrapper(
-                    url = url,
-                    onWebViewCreated = { webViewInstance = it }
-                )
+                val currentUrl = uiState.aiUrl
+                if (currentUrl != null) {
+                    AiWebViewWrapper(
+                        url = currentUrl,
+                        onWebViewCreated = { viewModel.setWebView(it) },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                // Overlay Preview Dialog
+                if (uiState.showPreview && uiState.lastResult != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AiResultPreview(
+                            result = uiState.lastResult!!,
+                            onAccept = { viewModel.onAcceptResult() },
+                            onReject = { viewModel.onRejectResult() }
+                        )
+                    }
+                }
             }
         }
     }

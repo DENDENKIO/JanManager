@@ -5,7 +5,6 @@ import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
@@ -18,6 +17,7 @@ fun AiWebViewWrapper(
     modifier: Modifier = Modifier
 ) {
     AndroidView(
+        modifier = modifier,
         factory = { context ->
             WebView(context).apply {
                 layoutParams = android.view.ViewGroup.LayoutParams(
@@ -25,18 +25,26 @@ fun AiWebViewWrapper(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT
                 )
                 
+                webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                    }
+                }
+
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    // Remove WebView identifier to prevent some mobile login blocking (e.g. Google)
-                    userAgentString = userAgentString.replace("; wv", "")
-                    // Allow mixed content if any
-                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                    loadWithOverviewMode = true
+                    useWideViewPort = true
+                    
+                    // Remove "; wv" from UserAgent as requested
+                    val originalUserAgent = userAgentString
+                    userAgentString = originalUserAgent.replace("; wv", "")
+                    
+                    cacheMode = WebSettings.LOAD_DEFAULT
                 }
-                
-                webViewClient = WebViewClient()
-                
-                // Keep cookies & third party cookies configured
+
+                // Cookie settings
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.setAcceptCookie(true)
                 cookieManager.setAcceptThirdPartyCookies(this, true)
@@ -45,12 +53,8 @@ fun AiWebViewWrapper(
                 loadUrl(url)
             }
         },
-        update = { webView ->
-            // If URL changes, load new URL
-            if (webView.url != url && webView.url?.contains(url) != true) {
-                webView.loadUrl(url)
-            }
-        },
-        modifier = modifier.fillMaxSize()
+        update = { _ ->
+            // Update logic if needed
+        }
     )
 }

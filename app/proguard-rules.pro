@@ -1,21 +1,21 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Room
+-keep class * extends androidx.room.RoomDatabase
+-dontwarn androidx.room.paging.**
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Hilt / Dagger
+-keep class dagger.hilt.android.internal.managers.ViewComponentManager$FragmentContextWrapper { *; }
+-keep class com.google.dagger.hilt.android.internal.managers.ViewComponentManager$FragmentContextWrapper { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Kotlin Serialization
+-keepattributes *Annotation*, EnclosingMethod, Signature
+-keepclassmembernames class kotlinx.serialization.json.** { *; }
+-keep class com.example.janmanager.ui.navigation.Route** { *; }
+-keepclassmembers class com.example.janmanager.ui.navigation.Route** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# AI Response Data
+-keep class com.example.janmanager.util.AiResponseData { *; }
+-keepclassmembers class com.example.janmanager.util.AiResponseData { *; }
+
+# ZXing
+-keep class com.google.zxing.** { *; }
+-dontwarn com.google.zxing.**

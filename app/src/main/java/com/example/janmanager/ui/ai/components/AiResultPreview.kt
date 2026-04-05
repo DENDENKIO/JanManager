@@ -1,40 +1,84 @@
 package com.example.janmanager.ui.ai.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.janmanager.data.local.entity.ProductMaster
+import androidx.compose.ui.unit.sp
+import com.example.janmanager.util.AiResponseData
 
 @Composable
 fun AiResultPreview(
-    product: ProductMaster,
+    result: AiResponseData,
+    onAccept: () -> Unit,
+    onReject: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(text = "JAN: ${product.janCode}", style = MaterialTheme.typography.labelMedium)
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "取得結果プレビュー",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
             
-            if (product.spec == "Not Found") {
-                Text(text = "商品情報は見つかりませんでした", color = MaterialTheme.colorScheme.error)
+            if (result.not_found) {
+                Text(
+                    text = "商品が見つかりませんでした",
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold
+                )
             } else {
-                Text(text = product.productName, style = MaterialTheme.typography.titleMedium)
-                Text(text = product.productNameKana, style = MaterialTheme.typography.bodySmall)
-                Text(text = product.makerName, style = MaterialTheme.typography.bodyMedium)
-                Text(text = product.spec, style = MaterialTheme.typography.bodyMedium)
+                ResultItem(label = "JANコード", value = result.jan_code)
+                ResultItem(label = "メーカー名", value = result.maker_name)
+                ResultItem(label = "メーカー名(かな)", value = result.maker_name_kana)
+                ResultItem(label = "商品名", value = result.product_name)
+                ResultItem(label = "商品名(かな)", value = result.product_name_kana)
+                ResultItem(label = "規格", value = result.spec)
+            }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onReject) {
+                    Text("破棄", color = MaterialTheme.colorScheme.error)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(onClick = onAccept) {
+                    Text("取得済みを保存")
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun ResultItem(label: String, value: String) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = value.ifEmpty { "---" },
+            style = MaterialTheme.typography.bodyLarge,
+            fontSize = 18.sp
+        )
     }
 }
