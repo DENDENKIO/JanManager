@@ -46,24 +46,22 @@ class AiFetchViewModel @Inject constructor(
     val uiState: StateFlow<AiFetchUiState> = _uiState.asStateFlow()
 
     private var fetchJob: Job? = null
+    private var flowObserveJob: Job? = null
     private val _proceedSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     private val interactor = AiWebViewInteractor()
     private var targetBaseUrl: String = "gemini.google.com"
 
     /**
-     * 修正: 現在ループで処理中の商品をスナップショットとして保持するフィールド。
-     * DB保存後に unfetchedProducts Flow が再発火してリストが縮小しても、
-     * このフィールドが指す商品は変わらないためJAN不一致が発生しない。
+     * 現在ループで処理中の商品。
+     * DB保存後に unfetchedProducts Flow が再発火しても
+     * この変数が指す商品は変わらないためJAN不一致が発生しない。
      */
     private var currentProduct: ProductMaster? = null
 
     init {
-        viewModelScope.launch {
-            repository.getUnfetchedProducts().collect { products ->
-                _uiState.value = _uiState.value.copy(unfetchedProducts = products)
-            }
-        }
+        // 待機中のみ Flow を監視してUIリストを更新する
+        startFlowObserver()
         viewModelScope.launch {
             val aiSelection = settingsDataStore.aiSelectionFlow.first()
             val url: String
@@ -103,6 +101,28 @@ class AiFetchViewModel @Inject constructor(
         }
     }
 
+    /**
+     * DBの未取得商品リストのFlow監視を開始する。
+     * 実行中はこの監視を停止することで、DB保存によるリスト縮小がインデックスに影響しない。
+     */
+    private fun startFlowObserver() {
+        flowObserveJob?.cancel()
+        flowObserveJob = viewModelScope.launch {
+            repository.getUnfetchedProducts().collect { products ->
+                _uiState.value = _uiState.value.copy(unfetchedProducts = products)
+            }
+        }
+    }
+
+    /**
+     * DBの未取得商品リストのFlow監視を停止する。
+     * 実行中に呼び出すことで、保存をしてもunfetchedProductsが再発火されない。
+     */
+    private fun stopFlowObserver() {
+        flowObserveJob?.cancel()
+        flowObserveJob = null
+    }
+
     fun setWebView(wv: WebView) {
         interactor.webView = wv
     }
@@ -111,17 +131,17 @@ class AiFetchViewModel @Inject constructor(
         if (_uiState.value.unfetchedProducts.isEmpty()) return
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
-            // 開始時のリストをスナップショットとして固定する
-            // → DB保存による Flow 再発火でリストが縮小してもスナップショットは変わらない
+            // 実行前に Flow 監視を停止する
+            // → これ以降 DB保存をしても unfetchedProducts が再発火されずインデックスがズれない
+            stopFlowObserver()
+
+            // 現在のリストを実行山として固定
             val productsToFetch = _uiState.value.unfetchedProducts.toList()
             _uiState.value = _uiState.value.copy(isRunning = true, currentIndex = 0)
 
             for (index in productsToFetch.indices) {
                 if (!_uiState.value.isRunning) break
 
-                // 修正: スナップショットから取得し currentProduct に保持
-                // onAcceptResult・ copyPromptToClipboard・ tryManualCapture が
-                // この値を参照するのでリスト履歴の影響を受けない
                 val product = productsToFetch[index]
                 currentProduct = product
                 _uiState.value = _uiState.value.copy(currentIndex = index)
@@ -134,12 +154,10 @@ class AiFetchViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         currentStatus = "取得成功: ${product.janCode} → 保存中..."
                     )
-                    // 自動保存（プレビュー確認なし）
                     saveResult(product, result.data)
                     _uiState.value = _uiState.value.copy(
                         currentStatus = "保存完了: ${product.janCode}"
                     )
-                    // 次の商品へ進む前に少し待機（AIサイトの負荷軽減）
                     delay(2000)
                 } else {
                     _uiState.value = _uiState.value.copy(
@@ -148,22 +166,32 @@ class AiFetchViewModel @Inject constructor(
                     delay(3000)
                 }
             }
+
             currentProduct = null
             _uiState.value = _uiState.value.copy(
                 isRunning = false,
+                currentIndex = -1,
                 currentStatus = "完了（${productsToFetch.size}件処理）"
             )
+            // 完了後に Flow 監視を再開してUIリストを最新化
+            startFlowObserver()
         }
     }
 
     fun stopFetch() {
-        currentProduct = null
-        _uiState.value = _uiState.value.copy(isRunning = false, currentStatus = "停止中")
         fetchJob?.cancel()
+        currentProduct = null
+        _uiState.value = _uiState.value.copy(
+            isRunning = false,
+            currentIndex = -1,
+            currentStatus = "停止中"
+        )
+        // 停止後に Flow 監視を再開してUIリストを最新化
+        startFlowObserver()
     }
 
     private suspend fun saveResult(product: ProductMaster, result: AiResponseData) {
-        if (result.not_found) return  // 見つからなかった商品はスキップ
+        if (result.not_found) return
 
         val updatedProduct = product.copy(
             makerName = result.maker_name,
@@ -186,9 +214,6 @@ class AiFetchViewModel @Inject constructor(
     fun onAcceptResult() {
         viewModelScope.launch {
             val result = _uiState.value.lastResult ?: return@launch
-            // 修正: currentProduct スナップショットを優先する
-            // → saveResult 後に unfetchedProducts が再発火しても、
-            //   すでに product を確定しているのでJAN不一致しない
             val product = currentProduct
                 ?: _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
                 ?: return@launch
@@ -204,7 +229,6 @@ class AiFetchViewModel @Inject constructor(
     }
 
     fun copyPromptToClipboard(context: Context) {
-        // 修正: currentProduct スナップショットを優先する
         val product = currentProduct
             ?: _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
             ?: return
@@ -214,15 +238,12 @@ class AiFetchViewModel @Inject constructor(
 
     fun tryManualCapture(context: Context) {
         viewModelScope.launch {
-            // 修正: currentProduct スナップショットを優先する
             val product = currentProduct
                 ?: _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
                 ?: return@launch
 
-            // WebViewから取得を試みる
             var parseResult = interactor.extractCurrentResponse(product.janCode)
 
-            // 失敗ならクリップボードから試みる
             if (parseResult !is AiParseResult.Success) {
                 val clipboardText = ClipboardHelper.readFromClipboard(context)
                 val cbResult = clipboardText?.let { AiResponseParser.parseResponse(it, product.janCode) }
