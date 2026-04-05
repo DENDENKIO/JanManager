@@ -85,8 +85,8 @@ class AiFetchViewModel @Inject constructor(
             if (config.isNotEmpty()) {
                 val parts = config.split("|")
                 if (parts.size == 3) {
-                    manualInput = parts[0].ifEmpty { null }
-                    manualSend = parts[1].ifEmpty { null }
+                    manualInput    = parts[0].ifEmpty { null }
+                    manualSend     = parts[1].ifEmpty { null }
                     manualResponse = parts[2].ifEmpty { null }
                 }
             }
@@ -138,14 +138,14 @@ class AiFetchViewModel @Inject constructor(
                 }
 
                 when {
-                    // 商品情報なし（not_found = true）→ 即座にスキップ、delayなし
-                    result.success && result.data?.not_found == true -> {
+                    // この分岐を必ず最初に評価— isNotFound フラグで明確に判定
+                    result.isNotFound -> {
                         markAsNotFound(product)
                         notFoundCount++
                         _uiState.value = _uiState.value.copy(
                             currentStatus = "スキップ（商品情報なし）: ${product.janCode}"
                         )
-                        // delay なし → 即座次へ
+                        // delayなし→即座に次へ
                     }
                     // 取得成功
                     result.success && result.data != null -> {
@@ -191,10 +191,6 @@ class AiFetchViewModel @Inject constructor(
         startFlowObserver()
     }
 
-    /**
-     * not_found 商品を infoFetched=true にマークして未取得リストから除去する。
-     * 商品情報は空のみままで、後から手動入力も可能。
-     */
     private suspend fun markAsNotFound(product: ProductMaster) {
         val updatedProduct = product.copy(
             infoFetched = true,
@@ -260,9 +256,7 @@ class AiFetchViewModel @Inject constructor(
             if (parseResult !is AiParseResult.Success) {
                 val clipboardText = ClipboardHelper.readFromClipboard(context)
                 val cbResult = clipboardText?.let { AiResponseParser.parseResponse(it, product.janCode) }
-                if (cbResult is AiParseResult.Success) {
-                    parseResult = cbResult
-                }
+                if (cbResult is AiParseResult.Success) parseResult = cbResult
             }
 
             if (parseResult is AiParseResult.Success) {
