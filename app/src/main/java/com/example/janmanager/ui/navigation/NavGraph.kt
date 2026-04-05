@@ -28,13 +28,15 @@ fun JanManagerNavGraph(navController: NavHostController) {
                 onNavigateToScan = { navController.navigate(Route.Scan) },
                 onNavigateToProductList = { navController.navigate(Route.ProductList) },
                 onNavigateToAiFetch = { navController.navigate(Route.AiFetch) },
-                onNavigateToOrderScan = { navController.navigate(Route.OrderScan) },
+                onNavigateToOrderScan = { navController.navigate(Route.SessionList) },
                 onNavigateToGroupList = { navController.navigate(Route.GroupList) },
                 onNavigateToSettings = { navController.navigate(Route.Settings) }
             )
         }
         composable<Route.Scan> {
-            ScanScreen()
+            ScanScreen(
+                onNavigateToAiFetch = { navController.navigate(Route.AiFetch) }
+            )
         }
         composable<Route.ProductList> {
             ProductListScreen(
@@ -43,13 +45,28 @@ fun JanManagerNavGraph(navController: NavHostController) {
         }
         composable<Route.ProductDetail> { backStackEntry ->
             val route = backStackEntry.toRoute<Route.ProductDetail>()
-            ProductDetailScreen(janCode = route.janCode)
+            ProductDetailScreen(
+                janCode = route.janCode,
+                onNavigateToDetail = { jan -> navController.navigate(Route.ProductDetail(jan)) }
+            )
         }
         composable<Route.AiFetch> {
             AiFetchScreen()
         }
-        composable<Route.OrderScan> {
-            OrderScanScreen(onComplete = { navController.popBackStack() })
+        composable<Route.SessionList> {
+            // 後ほど作成する SessionListScreen
+            com.example.janmanager.ui.order.SessionListScreen(
+                onNavigateToScan = { sessionId -> navController.navigate(Route.OrderScan(sessionId)) },
+                onNavigateToList = { sessionId -> navController.navigate(Route.OrderList(sessionId)) },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable<Route.OrderScan> { backStackEntry ->
+            val route = backStackEntry.toRoute<Route.OrderScan>()
+            OrderScanScreen(
+                sessionId = route.sessionId,
+                onComplete = { navController.popBackStack() }
+            )
         }
         composable<Route.OrderList> { backStackEntry ->
             val route = backStackEntry.toRoute<Route.OrderList>()
@@ -77,7 +94,9 @@ fun JanManagerNavGraph(navController: NavHostController) {
             )
         }
         composable<Route.Settings> {
-            SettingsScreen()
+            SettingsScreen(
+                onNavigateToAiFetch = { navController.navigate(Route.AiFetch) }
+            )
         }
     }
 }

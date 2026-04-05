@@ -17,7 +17,10 @@ import com.example.janmanager.ui.scan.ScanViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConfirmMode(viewModel: ScanViewModel) {
+fun ConfirmMode(
+    viewModel: ScanViewModel,
+    onNavigateToAiFetch: () -> Unit
+) {
     val product by viewModel.confirmProduct.collectAsState()
     val lastBarcode by viewModel.lastConfirmBarcode.collectAsState()
     
@@ -66,6 +69,13 @@ fun ConfirmMode(viewModel: ScanViewModel) {
                             label = { Text("取得済み") },
                             modifier = Modifier.padding(top = 8.dp)
                         )
+                    } else if (product != null) {
+                        SuggestionChip(
+                            onClick = { },
+                            label = { Text("AI未取得", color = MaterialTheme.colorScheme.onTertiaryContainer) },
+                            modifier = Modifier.padding(top = 8.dp),
+                            colors = SuggestionChipDefaults.suggestionChipColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                        )
                     }
                 } else if (lastBarcode.isNotEmpty()) {
                     Text("商品未登録", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
@@ -79,6 +89,14 @@ fun ConfirmMode(viewModel: ScanViewModel) {
             enabled = lastBarcode.isNotEmpty()
         ) {
             Text(if (product?.infoFetched == true) "商品情報を再取得" else "AI情報取得")
+        }
+
+        OutlinedButton(
+            onClick = { onNavigateToAiFetch() },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
+        ) {
+            Text("未取得商品の一括AI取得画面へ")
         }
     }
 
@@ -97,10 +115,15 @@ fun ConfirmMode(viewModel: ScanViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("AI情報取得: $lastBarcode", fontWeight = FontWeight.Bold)
-                    Text(aiStatus, color = MaterialTheme.colorScheme.primary)
-                    Button(onClick = { viewModel.startSingleAiFetch() }) {
-                        Text("実行")
+                    Text("AI情報取得: $lastBarcode", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text(aiStatus, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { viewModel.startBatchAiFetch() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) {
+                            Text("一括")
+                        }
+                        Button(onClick = { viewModel.startSingleAiFetch() }) {
+                            Text("実行")
+                        }
                     }
                 }
 

@@ -38,4 +38,8 @@ class ScanRepository @Inject constructor(
     suspend fun hasDuplicateJan(sessionId: Long, barcode: String): Boolean {
         return itemDao.hasDuplicateJan(sessionId, barcode)
     }
+
+    suspend fun deleteItem(item: ScanItem) {
+        itemDao.delete(item)
+    }
 }

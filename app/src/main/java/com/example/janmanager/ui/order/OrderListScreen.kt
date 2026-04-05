@@ -14,6 +14,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.ViewCarousel
 import androidx.compose.material3.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +39,15 @@ fun OrderListScreen(
 ) {
     val session by viewModel.session.collectAsState()
     val items by viewModel.items.collectAsState()
+    val context = LocalContext.current
     var isFocusMode by remember { mutableStateOf(false) }
+    var itemToDelete by remember { mutableStateOf<OrderItemInfo?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        uri?.let { viewModel.exportCsv(context, it) }
+    }
 
     LaunchedEffect(sessionId) {
         viewModel.loadSession(sessionId)
@@ -51,6 +64,9 @@ fun OrderListScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { exportLauncher.launch("order_history_${session?.sessionName ?: sessionId}.csv") }) {
+                        Icon(Icons.Default.Download, contentDescription = "CSV出力")
+                    }
                     IconButton(onClick = { isFocusMode = !isFocusMode }) {
                         Icon(
                             if (isFocusMode) Icons.Default.List else Icons.Default.ViewCarousel,
@@ -64,7 +80,30 @@ fun OrderListScreen(
         if (isFocusMode) {
             FocusModeContent(items, viewModel, padding)
         } else {
-            ListModeContent(items, viewModel, padding)
+            ListModeContent(items, viewModel, padding, onDeleteRequest = { itemToDelete = it })
+        }
+
+        itemToDelete?.let { info ->
+            AlertDialog(
+                onDismissRequest = { itemToDelete = null },
+                title = { Text("明細の削除") },
+                text = { Text("「${info.product?.productName ?: info.scanItem.scannedBarcode}」を一覧から削除しますか？") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteItem(info)
+                            itemToDelete = null
+                        }
+                    ) {
+                        Text("削除", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { itemToDelete = null }) {
+                        Text("キャンセル")
+                    }
+                }
+            )
         }
     }
 }
@@ -73,7 +112,8 @@ fun OrderListScreen(
 fun ListModeContent(
     items: List<OrderItemInfo>,
     viewModel: OrderListViewModel,
-    padding: PaddingValues
+    padding: PaddingValues,
+    onDeleteRequest: (OrderItemInfo) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -83,18 +123,26 @@ fun ListModeContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(items) { info ->
-            OrderListItem(info, onToggle = { viewModel.toggleBarcodeVisibility(info.scanItem.id) })
+            OrderListItem(
+                info = info, 
+                onToggle = { viewModel.toggleBarcodeVisibility(info.scanItem.id) },
+                onDeleteRequest = { onDeleteRequest(info) }
+            )
             HorizontalDivider()
         }
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun OrderListItem(info: OrderItemInfo, onToggle: () -> Unit) {
+fun OrderListItem(info: OrderItemInfo, onToggle: () -> Unit, onDeleteRequest: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onToggle() }
+            .combinedClickable(
+                onClick = { onToggle() },
+                onLongClick = { onDeleteRequest() }
+            )
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -106,7 +154,7 @@ fun OrderListItem(info: OrderItemInfo, onToggle: () -> Unit) {
 
         if (info.isVisible) {
             val barcodeBitmap = remember(info.scanItem.scannedBarcode) {
-                BarcodeGenerator.generateEan13Bitmap(info.scanItem.scannedBarcode, 300, 100)
+                BarcodeGenerator.generateBarcodeBitmap(info.scanItem.scannedBarcode, 300, 100)
             }
             barcodeBitmap?.let {
                 Image(
@@ -140,15 +188,23 @@ fun FocusModeContent(
     val pagerState = rememberPagerState(pageCount = { items.size })
 
     DisposableEffect(Unit) {
-        val window = (context as Activity).window
-        val layoutParams = window.attributes
-        val originalBrightness = layoutParams.screenBrightness
-        layoutParams.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
-        window.attributes = layoutParams
+        val activity = context as? androidx.activity.ComponentActivity
+        val window = activity?.window
+        val layoutParams = window?.attributes
+        val originalBrightness = layoutParams?.screenBrightness ?: -1f
+        
+        window?.let { w ->
+            w.attributes = w.attributes.also {
+                it.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
+            }
+        }
 
         onDispose {
-            layoutParams.screenBrightness = originalBrightness
-            window.attributes = layoutParams
+            window?.let { w ->
+                w.attributes = w.attributes.also {
+                    it.screenBrightness = originalBrightness
+                }
+            }
         }
     }
 
@@ -180,7 +236,7 @@ fun FocusModeContent(
                 ) {
                     if (info.isVisible) {
                         val barcodeBitmap = remember(info.scanItem.scannedBarcode) {
-                            BarcodeGenerator.generateEan13Bitmap(info.scanItem.scannedBarcode, 600, 200)
+                            BarcodeGenerator.generateBarcodeBitmap(info.scanItem.scannedBarcode, 600, 200)
                         }
                         barcodeBitmap?.let {
                             Image(

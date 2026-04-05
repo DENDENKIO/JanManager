@@ -23,6 +23,7 @@ import com.example.janmanager.ui.ai.components.AiWebViewWrapper
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    onNavigateToAiFetch: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val aiSelection by viewModel.aiSelection.collectAsState()
@@ -41,6 +42,14 @@ fun SettingsScreen(
     ) { uri: Uri? ->
         uri?.let { viewModel.exportCsv(context, it) }
     }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let { viewModel.importCsv(context, it) }
+    }
+
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("設定") }) }
@@ -150,11 +159,59 @@ fun SettingsScreen(
             // Data Management
             SettingsSection(title = "データ管理") {
                 Button(
-                    onClick = { exportLauncher.launch("product_master_${System.currentTimeMillis()}.csv") },
-                    modifier = Modifier.fillMaxWidth()
+                    onClick = { onNavigateToAiFetch() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
                 ) {
-                    Text("商品マスタをCSVエクスポート")
+                    Text("未取得商品の一括AI取得")
                 }
+                
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { importLauncher.launch(arrayOf("text/comma-separated-values", "text/csv", "application/octet-stream")) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("CSVインポート")
+                    }
+                    Button(
+                        onClick = { exportLauncher.launch("product_master_${System.currentTimeMillis()}.csv") },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors()
+                    ) {
+                        Text("エクスポート")
+                    }
+                }
+                
+                Button(
+                    onClick = { showDeleteConfirm = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("商品マスタを全削除")
+                }
+            }
+            
+            if (showDeleteConfirm) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteConfirm = false },
+                    title = { Text("商品マスタの全削除") },
+                    text = { Text("登録されているすべての商品データが削除されます。この操作は取り消せませんが、よろしいですか？") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = { 
+                                viewModel.deleteAllData()
+                                showDeleteConfirm = false 
+                            },
+                        ) {
+                            Text("削除する", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteConfirm = false }) {
+                            Text("キャンセル")
+                        }
+                    }
+                )
             }
             
             // App Info

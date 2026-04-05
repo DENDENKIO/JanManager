@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.janmanager.data.local.entity.ProductMaster
 import com.example.janmanager.data.repository.ProductRepository
 import com.example.janmanager.data.settings.SettingsDataStore
+import com.example.janmanager.util.WebViewJsHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -95,34 +96,46 @@ class SettingsViewModel @Inject constructor(
 
     fun detectSelectors(webView: WebView?) {
         if (webView == null) return
+        val currentAi = aiSelection.value
         _uiState.value = _uiState.value.copy(detectionStatus = "検出中...")
         
+        val inputCandidates = if (currentAi == "PERPLEXITY") WebViewJsHelper.PERPLEXITY_INPUT_SELECTORS else WebViewJsHelper.GEMINI_INPUT_SELECTORS
+        val sendCandidates = if (currentAi == "PERPLEXITY") WebViewJsHelper.PERPLEXITY_SEND_SELECTORS else WebViewJsHelper.GEMINI_SEND_SELECTORS
+        val respCandidates = if (currentAi == "PERPLEXITY") WebViewJsHelper.PERPLEXITY_RESPONSE_SELECTORS else WebViewJsHelper.GEMINI_RESPONSE_SELECTORS
+
+        val inputJson = inputCandidates.joinToString(",") { s -> "'$s'" }
+        val sendJson = sendCandidates.joinToString(",") { s -> "'$s'" }
+        val respJson = respCandidates.joinToString(",") { s -> "'$s'" }
+
         val js = """
             (function() {
                 var res = { input: "", send: "", response: "" };
-                // Heuristic for input
-                var input = document.querySelector('div[contenteditable="true"], textarea');
-                if (input) res.input = input.tagName.toLowerCase() + (input.getAttribute('contenteditable') ? '[contenteditable="true"]' : '');
-                
-                // Heuristic for send button
-                var buttons = document.querySelectorAll('button');
-                for (var b of buttons) {
-                    if (b.innerText.includes('送信') || b.innerText.includes('Send') || b.getAttribute('aria-label')?.includes('Send')) {
-                        res.send = 'button' + (b.getAttribute('aria-label') ? '[aria-label*="' + b.getAttribute('aria-label').split(' ')[0] + '"]' : '');
-                        break;
-                    }
+                var inputList = [$inputJson];
+                var sendList = [$sendJson];
+                var respList = [$respJson];
+
+                for (var s of inputList) {
+                    if (document.querySelector(s)) { res.input = s; break; }
+                }
+                for (var s of sendList) {
+                    var el = document.querySelector(s);
+                    if (el) { res.send = s; break; }
+                }
+                for (var s of respList) {
+                    if (document.querySelector(s)) { res.response = s; break; }
                 }
                 
-                // Heuristic for response
-                var responses = document.querySelectorAll('.message-content, .prose, .model-response-text');
-                if (responses.length > 0) res.response = '.' + responses[responses.length-1].className.split(' ')[0];
+                // Fallback heuristic if nothing found in candidates
+                if (!res.input) {
+                    var fallback = document.querySelector('div[contenteditable="true"], textarea');
+                    if (fallback) res.input = fallback.tagName.toLowerCase() + (fallback.getAttribute('contenteditable') ? '[contenteditable="true"]' : '');
+                }
                 
                 return JSON.stringify(res);
             })()
         """.trimIndent()
 
         webView.evaluateJavascript(js) { result ->
-            // result is a JSON string
             try {
                 val clean = result.removePrefix("\"").removeSuffix("\"").replace("\\\"", "\"")
                 val json = kotlinx.serialization.json.Json.parseToJsonElement(clean).let { 
@@ -133,7 +146,7 @@ class SettingsViewModel @Inject constructor(
                     val send = json["send"]?.toString()?.removeSurrounding("\"") ?: ""
                     val resp = json["response"]?.toString()?.removeSurrounding("\"") ?: ""
                     updateSelectors(input, send, resp)
-                    _uiState.value = _uiState.value.copy(detectionStatus = "完了")
+                    _uiState.value = _uiState.value.copy(detectionStatus = if (input.isNotEmpty()) "完了" else "一部未検出")
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(detectionStatus = "失敗")
@@ -153,6 +166,55 @@ class SettingsViewModel @Inject constructor(
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                     outputStream.write(csv.toString().toByteArray())
                 }
+            }
+        }
+    }
+
+    fun importCsv(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
+                    val lines = reader.readLines()
+                    if (lines.isEmpty()) return@launch
+                    
+                    // Skip header if it looks like one (contains "JAN" or "メーカー")
+                    val startIndex = if (lines[0].contains("JAN") || lines[0].contains("メーカー")) 1 else 0
+                    
+                    for (i in startIndex until lines.size) {
+                        val line = lines[i]
+                        if (line.isBlank()) continue
+                        
+                        val cols = line.split(",")
+                        if (cols.size >= 4) {
+                            val jan = cols[0].trim()
+                            val product = ProductMaster(
+                                janCode = jan,
+                                makerJanPrefix = com.example.janmanager.util.JanCodeUtil.extractMakerPrefix(jan),
+                                makerName = cols[1].trim(),
+                                makerNameKana = "",
+                                productName = cols[2].trim(),
+                                productNameKana = "",
+                                spec = cols[3].trim(),
+                                updatedAt = System.currentTimeMillis()
+                            )
+                            productRepository.insertProduct(product)
+                        }
+                    }
+                }
+                _uiState.value = _uiState.value.copy(detectionStatus = "インポート完了")
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(detectionStatus = "インポート失敗")
+            }
+        }
+    }
+
+    fun deleteAllData() {
+        viewModelScope.launch {
+            try {
+                productRepository.deleteAllProducts()
+                _uiState.value = _uiState.value.copy(detectionStatus = "データ削除完了")
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(detectionStatus = "削除失敗")
             }
         }
     }

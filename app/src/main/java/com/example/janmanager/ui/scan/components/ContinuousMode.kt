@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.janmanager.ui.scan.ScanViewModel
 
@@ -40,7 +41,7 @@ fun ContinuousMode(viewModel: ScanViewModel) {
                     style = MaterialTheme.typography.labelMedium
                 )
                 Text(
-                    text = recentlyScanned.firstOrNull() ?: "なし",
+                    text = recentlyScanned.firstOrNull()?.jan ?: "なし",
                     style = MaterialTheme.typography.headlineMedium
                 )
             }
@@ -50,13 +51,20 @@ fun ContinuousMode(viewModel: ScanViewModel) {
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(recentlyScanned) { barcode ->
+            items(recentlyScanned) { scan ->
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = barcode,
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = scan.productName,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = scan.jan,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
                 }
             }
         }

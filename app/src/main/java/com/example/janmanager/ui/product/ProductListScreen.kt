@@ -16,7 +16,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.janmanager.data.local.entity.ProductMaster
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import com.example.janmanager.data.local.entity.ProductStatus
+import com.example.janmanager.data.repository.SearchType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +29,8 @@ fun ProductListScreen(
 ) {
     val products by viewModel.products.collectAsState()
     val groupsByJan by viewModel.groupsByJan.collectAsState()
+    val currentSearchType by viewModel.searchType.collectAsState()
+    val currentStatusFilter by viewModel.statusFilter.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
     Scaffold(
@@ -34,6 +39,32 @@ fun ProductListScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
+            // Search Type Selection
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SearchType.values().forEach { type ->
+                    FilterChip(
+                        selected = currentSearchType == type,
+                        onClick = { viewModel.updateSearchType(type) },
+                        label = {
+                            Text(
+                                when (type) {
+                                    SearchType.JAN -> "JAN"
+                                    SearchType.NAME_KANA -> "商品名"
+                                    SearchType.MAKER -> "メーカー"
+                                    SearchType.SPEC -> "規格"
+                                }
+                            )
+                        }
+                    )
+                }
+            }
+
             // Search Bar
             OutlinedTextField(
                 value = searchQuery,
@@ -43,11 +74,41 @@ fun ProductListScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                placeholder = { Text("JAN, 商品名, メーカー...") },
+                    .padding(horizontal = 16.dp),
+                placeholder = { Text("検索ワード入力...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true
             )
+
+            // Status Filter Selection
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = currentStatusFilter == null,
+                    onClick = { viewModel.updateStatusFilter(null) },
+                    label = { Text("すべて") }
+                )
+                ProductStatus.values().forEach { status ->
+                    FilterChip(
+                        selected = currentStatusFilter == status,
+                        onClick = { viewModel.updateStatusFilter(status) },
+                        label = {
+                            Text(
+                                when (status) {
+                                    ProductStatus.ACTIVE -> "継続"
+                                    ProductStatus.DISCONTINUED -> "終売"
+                                    ProductStatus.RENEWED -> "更新済"
+                                }
+                            )
+                        }
+                    )
+                }
+            }
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),

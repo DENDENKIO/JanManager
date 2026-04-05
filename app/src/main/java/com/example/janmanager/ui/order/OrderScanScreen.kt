@@ -32,6 +32,7 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderScanScreen(
+    sessionId: Long,
     onComplete: () -> Unit,
     viewModel: OrderScanViewModel = hiltViewModel()
 ) {
@@ -59,6 +60,32 @@ fun OrderScanScreen(
         if (uiState.isDuplicate) {
             Toast.makeText(context, "重複: ${uiState.lastScannedJan} は既に追加されています", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    // Discontinued confirmation dialog
+    uiState.pendingDiscontinuedProduct?.let { product ->
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelDiscontinued() },
+            title = { Text("⚠️ 終売品確認") },
+            text = { 
+                Column {
+                    Text("この商品は終売として登録されています。発注リストに追加しますか？")
+                    Spacer(Modifier.height(8.dp))
+                    Text("商品名: ${product.productName}", fontWeight = FontWeight.Bold)
+                    Text("JAN: ${product.janCode}")
+                }
+            },
+            confirmButton = {
+                Button(onClick = { viewModel.confirmDiscontinued() }) {
+                    Text("追加する")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { viewModel.cancelDiscontinued() }) {
+                    Text("キャンセル")
+                }
+            }
+        )
     }
 
     Scaffold(

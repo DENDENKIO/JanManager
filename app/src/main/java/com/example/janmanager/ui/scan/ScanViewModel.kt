@@ -12,18 +12,27 @@ import com.example.janmanager.data.settings.SettingsDataStore
 import com.example.janmanager.util.AiPromptBuilder
 import com.example.janmanager.util.AiResponseData
 import com.example.janmanager.util.AiResponseParser
+import com.example.janmanager.util.AiParseResult
 import com.example.janmanager.util.JanCodeUtil
+import com.example.janmanager.util.SoundHelper
 import com.example.janmanager.util.WebViewJsHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlin.coroutines.resume
 import javax.inject.Inject
 
 enum class ScanModeTab {
     CONTINUOUS, CONFIRM, LINKAGE
 }
+
+data class RecentScan(
+    val jan: String,
+    val productName: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
 
 enum class LinkageSlot {
     OLD_JAN, NEW_JAN, PACKAGE
@@ -39,11 +48,14 @@ class ScanViewModel @Inject constructor(
     val isItfEnabled = settingsDataStore.isItfEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val scanSoundEnabled = settingsDataStore.scanSoundEnabledFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     private val _currentTab = MutableStateFlow(ScanModeTab.CONTINUOUS)
     val currentTab = _currentTab.asStateFlow()
 
     // Continuous Mode State
-    private val _recentlyScanned = MutableStateFlow<List<String>>(emptyList())
+    private val _recentlyScanned = MutableStateFlow<List<RecentScan>>(emptyList())
     val recentlyScanned = _recentlyScanned.asStateFlow()
 
     // Confirm Mode State
@@ -82,9 +94,13 @@ class ScanViewModel @Inject constructor(
     val aiUrl = _aiUrl.asStateFlow()
 
     private var webView: WebView? = null
-    private var inputSelector = "div.ql-editor"  // Geminiデフォルト（Quill Editor）
-    private var sendButtonSelector = "button[aria-label='プロンプトを送信']"
-    private var responseSelector = ".response-content, .model-response-text"
+    private var manualInputSelector: String? = null
+    private var manualSendButtonSelector: String? = null
+    private var manualResponseSelector: String? = null
+    
+    private var inputSelectors: List<String> = WebViewJsHelper.GEMINI_INPUT_SELECTORS
+    private var sendSelectors: List<String> = WebViewJsHelper.GEMINI_SEND_SELECTORS
+    private var responseSelectors: List<String> = WebViewJsHelper.GEMINI_RESPONSE_SELECTORS
 
     // Linkage Mode State
     private val _activeLinkageSlot = MutableStateFlow(LinkageSlot.OLD_JAN)
@@ -109,15 +125,23 @@ class ScanViewModel @Inject constructor(
             }
             
             if (aiSelection == "PERPLEXITY") {
-                // Perplexity: Lexical Editor
-                inputSelector = "#ask-input"
-                sendButtonSelector = "button[aria-label='送信']"
-                responseSelector = ".prose"
+                inputSelectors = WebViewJsHelper.PERPLEXITY_INPUT_SELECTORS
+                sendSelectors = WebViewJsHelper.PERPLEXITY_SEND_SELECTORS
+                responseSelectors = WebViewJsHelper.PERPLEXITY_RESPONSE_SELECTORS
             } else {
-                // Gemini: Quill Editor
-                inputSelector = "div.ql-editor"
-                sendButtonSelector = "button[aria-label='プロンプトを送信']"
-                responseSelector = ".response-content, .model-response-text"
+                inputSelectors = WebViewJsHelper.GEMINI_INPUT_SELECTORS
+                sendSelectors = WebViewJsHelper.GEMINI_SEND_SELECTORS
+                responseSelectors = WebViewJsHelper.GEMINI_RESPONSE_SELECTORS
+            }
+
+            val config = settingsDataStore.selectorConfigFlow.first()
+            if (config.isNotEmpty()) {
+                val parts = config.split("|")
+                if (parts.size == 3) {
+                    manualInputSelector = parts[0].ifEmpty { null }
+                    manualSendButtonSelector = parts[1].ifEmpty { null }
+                    manualResponseSelector = parts[2].ifEmpty { null }
+                }
             }
         }
     }
@@ -141,11 +165,19 @@ class ScanViewModel @Inject constructor(
         // Convert ITF to JAN if necessary or keep it based on modes
         val normalizedBarcode = if (type == BarcodeType.ITF14) JanCodeUtil.itfToJan(barcode) else barcode
 
+        if (scanSoundEnabled.value) {
+            SoundHelper.playSuccessBeep()
+        }
+
         when (_currentTab.value) {
             ScanModeTab.CONTINUOUS -> {
-                val list = _recentlyScanned.value.toMutableList()
-                list.add(0, normalizedBarcode)
-                _recentlyScanned.value = list.take(50) // Keep last 50
+                viewModelScope.launch {
+                    val product = productRepository.getProductByJan(normalizedBarcode)
+                    val name = product?.productName ?: "未登録"
+                    val list = _recentlyScanned.value.toMutableList()
+                    list.add(0, RecentScan(normalizedBarcode, name))
+                    _recentlyScanned.value = list.take(50) // Keep last 50
+                }
             }
             ScanModeTab.CONFIRM -> {
                 _lastConfirmBarcode.value = normalizedBarcode
@@ -203,42 +235,78 @@ class ScanViewModel @Inject constructor(
     fun startSingleAiFetch() {
         val janCode = _lastConfirmBarcode.value
         if (janCode.isEmpty()) return
-
         viewModelScope.launch {
-            _aiFetchStatus.value = "プロンプト入力中..."
-            val prompt = AiPromptBuilder.buildPrompt(janCode)
-            
-            val injectJs = WebViewJsHelper.getInjectPromptJsForRichEditor(inputSelector, prompt)
-            webView?.evaluateJavascript(injectJs, null)
-            delay(1000)
-            
-            _aiFetchStatus.value = "送信中..."
-            val sendJs = WebViewJsHelper.getClickSendJs(sendButtonSelector)
-            webView?.evaluateJavascript(sendJs, null)
-            
-            _aiFetchStatus.value = "回答待ち..."
-            repeat(20) {
-                val extractJs = WebViewJsHelper.getExtractResponseJs(responseSelector)
-                val rawResponse = kotlin.coroutines.suspendCoroutine<String?> { continuation ->
-                    webView?.post {
-                        webView?.evaluateJavascript(extractJs) { result ->
-                            continuation.resumeWith(Result.success(result))
-                        }
-                    }
-                }
-                
-                if (rawResponse != null && rawResponse != "null" && rawResponse.length > 2) {
-                    val cleanResponse = rawResponse.removePrefix("\"").removeSuffix("\"").replace("\\n", "\n").replace("\\\"", "\"")
-                    val parsed = AiResponseParser.parseResponse(cleanResponse, janCode)
-                    if (parsed != null) {
-                        _aiResultPreview.value = parsed
-                        _aiFetchStatus.value = "取得完了"
-                        return@launch
-                    }
-                }
-                delay(1000)
+            _aiFetchStatus.value = "取得開始..."
+            performSingleAiFetchInternal(janCode)
+            _aiFetchStatus.value = if (_aiResultPreview.value != null) "取得完了" else "タイムアウト"
+        }
+    }
+
+    fun startBatchAiFetch() {
+        viewModelScope.launch {
+            val unfetched = productRepository.getUnfetchedProducts().first()
+            if (unfetched.isEmpty()) {
+                _aiFetchStatus.value = "未取得の商品はありません"
+                return@launch
             }
-            _aiFetchStatus.value = "タイムアウト"
+            
+            _aiFetchStatus.value = "一括取得開始: ${unfetched.size}件"
+            unfetched.forEachIndexed { index, product ->
+                _lastConfirmBarcode.value = product.janCode
+                _aiFetchStatus.value = "処理中 (${index + 1}/${unfetched.size}): ${product.janCode}"
+                
+                // 実際の取得処理（シングルのロジックを待機付きで実行）
+                performSingleAiFetchInternal(product.janCode)
+                
+                // プレビュー表示中にユーザーが承認するのを待つか、
+                // あるいは仕様により「自動一括」なら自動承認もあり得るが、
+                // ここでは一旦「1件ずつ確認」または「一定時間待機」の簡易実装とする。
+                // 今回は「1件終わるごとに3秒待機して次へ」とする。
+                delay(3000) 
+            }
+            _aiFetchStatus.value = "一括取得が完了しました"
+        }
+    }
+
+    private suspend fun performSingleAiFetchInternal(janCode: String) {
+        val prompt = AiPromptBuilder.buildPrompt(janCode)
+        val injectJs = WebViewJsHelper.getInjectPromptJsWithFallback(inputSelectors, manualInputSelector, prompt)
+        webView?.post { webView?.evaluateJavascript(injectJs, null) }
+        delay(1000)
+        
+        val sendJs = WebViewJsHelper.getClickSendJsWithFallback(sendSelectors, manualSendButtonSelector)
+        webView?.post { webView?.evaluateJavascript(sendJs, null) }
+        
+        for (i in 0 until 20) {
+            val extractJs = WebViewJsHelper.getExtractResponseJsWithFallback(responseSelectors, manualResponseSelector)
+            val rawResponse = kotlin.coroutines.suspendCoroutine<String?> { continuation ->
+                webView?.post {
+                    webView?.evaluateJavascript(extractJs) { result: String? ->
+                        continuation.resume(result)
+                    }
+                }
+            }
+            
+            if (rawResponse != null && rawResponse != "null" && rawResponse.length > 2) {
+                val cleanResponse = rawResponse.removePrefix("\"").removeSuffix("\"").replace("\\n", "\n").replace("\\\"", "\"")
+                when (val parseResult = AiResponseParser.parseResponse(cleanResponse, janCode)) {
+                    is AiParseResult.Success -> {
+                        _aiResultPreview.value = parseResult.data
+                        return
+                    }
+                    is AiParseResult.NotFound -> {
+                        _aiResultPreview.value = AiResponseData(jan_code = janCode, not_found = true)
+                        return
+                    }
+                    is AiParseResult.JanMismatch -> {
+                        _aiFetchStatus.value = "JAN不一致: ${parseResult.actual}"
+                    }
+                    is AiParseResult.InvalidFormat -> {
+                        // Still polling...
+                    }
+                }
+            }
+            delay(1000)
         }
     }
 

@@ -38,6 +38,7 @@ import com.example.janmanager.data.local.entity.ProductStatus
 @Composable
 fun ProductDetailScreen(
     janCode: String,
+    onNavigateToDetail: (String) -> Unit,
     viewModel: ProductDetailViewModel = hiltViewModel()
 ) {
     val product by viewModel.product.collectAsState()
@@ -142,10 +143,20 @@ fun ProductDetailScreen(
                 // Renewal Management
                 Text("リニューアル・終売", style = MaterialTheme.typography.titleMedium)
                 if (p.renewedFromJan != null) {
-                    Text("旧品: ${p.renewedFromJan}")
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("旧品: ${p.renewedFromJan}")
+                        androidx.compose.material3.TextButton(onClick = { onNavigateToDetail(p.renewedFromJan!!) }) {
+                            Text("→ 詳細を見る")
+                        }
+                    }
                 }
                 if (p.renewedToJan != null) {
-                    Text("新品: ${p.renewedToJan}")
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("新品: ${p.renewedToJan}")
+                        androidx.compose.material3.TextButton(onClick = { onNavigateToDetail(p.renewedToJan!!) }) {
+                            Text("→ 詳細を見る")
+                        }
+                    }
                 }
                 
                 var linkJan by remember { mutableStateOf("") }

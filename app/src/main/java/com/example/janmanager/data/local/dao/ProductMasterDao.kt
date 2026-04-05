@@ -47,4 +47,7 @@ interface ProductMasterDao {
 
     @Query("SELECT * FROM product_master WHERE info_fetched = 0 ORDER BY id ASC")
     fun getUnfetchedProducts(): Flow<List<ProductMaster>>
+
+    @Query("DELETE FROM product_master")
+    suspend fun deleteAll()
 }

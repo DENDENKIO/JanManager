@@ -28,11 +28,17 @@ class ProductListViewModel @Inject constructor(
     val statusFilter = _statusFilter.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val products: StateFlow<List<ProductMaster>> = _searchQuery
-        .flatMapLatest { query ->
-            repository.searchProducts(query, _searchType.value)
+    val products: StateFlow<List<ProductMaster>> = combine(
+        _searchQuery,
+        _searchType,
+        _statusFilter
+    ) { query, type, status ->
+        Triple(query, type, status)
+    }.flatMapLatest { (query, type, status) ->
+        repository.searchProducts(query, type).map { list ->
+            if (status == null) list else list.filter { it.status == status }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val groupsByJan: StateFlow<Map<String, List<Int>>> = groupRepository.getActiveGroups()
@@ -61,9 +67,6 @@ class ProductListViewModel @Inject constructor(
 
     fun updateSearchType(type: SearchType) {
         _searchType.value = type
-        val q = _searchQuery.value
-        _searchQuery.value = ""
-        _searchQuery.value = q
     }
 
     fun updateStatusFilter(status: ProductStatus?) {

@@ -2,72 +2,115 @@ package com.example.janmanager.util
 
 object WebViewJsHelper {
 
-    /**
-     * contenteditable エディタ（Quill / Lexical など）向けの汎用プロンプト注入。
-     * execCommand('insertText') でペーストとして挿入することで、
-     * React / Angular 管理のstateが正しく更新され、送信ボタンが有効化される。
-     * Gemini（Quill Editor）・Perplexity（Lexical Editor）の両方に対応。
-     */
-    fun getInjectPromptJsForRichEditor(selector: String, prompt: String): String {
-        val escapedPrompt = escapeForJs(prompt)
-        return """
-            (function() {
-                var el = document.querySelector('$selector');
-                if (!el) return false;
-                el.focus();
-                // 既存テキストを全選択して削除
-                document.execCommand('selectAll', false, null);
-                document.execCommand('delete', false, null);
-                // テキストをペーストとして挿入（エディタのstateを更新させる）
-                document.execCommand('insertText', false, '$escapedPrompt');
-                return true;
-            })();
-        """.trimIndent()
-    }
+    val GEMINI_INPUT_SELECTORS = listOf(
+        "div.ql-editor[contenteditable='true']",
+        "div[contenteditable='true'].ProseMirror",
+        "rich-textarea div[contenteditable]",
+        "div.input-area",
+        "textarea"
+    )
 
-    /**
-     * 通常の textarea / input 向けプロンプト注入（フォールバック用）
-     */
-    fun getInjectPromptJsForTextarea(selector: String, prompt: String): String {
+    val GEMINI_SEND_SELECTORS = listOf(
+        "button[aria-label='プロンプトを送信']",
+        "button[aria-label='Send prompt']",
+        "button.send-button",
+        "button.send"
+    )
+
+    val GEMINI_RESPONSE_SELECTORS = listOf(
+        ".response-content",
+        ".model-response-text",
+        "div.message-content",
+        ".prose"
+    )
+
+    val PERPLEXITY_INPUT_SELECTORS = listOf(
+        "#ask-input",
+        "textarea[placeholder*='質問']",
+        "textarea[placeholder*='Ask']",
+        "div[contenteditable='true']"
+    )
+
+    val PERPLEXITY_SEND_SELECTORS = listOf(
+        "button[aria-label='送信']",
+        "button[aria-label='Submit']",
+        "button.send-button",
+        "button[type='submit']"
+    )
+
+    val PERPLEXITY_RESPONSE_SELECTORS = listOf(
+        ".prose",
+        ".message-content",
+        "div.answer"
+    )
+
+    fun getInjectPromptJsWithFallback(selectors: List<String>, manualSelector: String?, prompt: String): String {
         val escapedPrompt = escapeForJs(prompt)
+        val allSelectors = (if (manualSelector.isNullOrEmpty()) emptyList() else listOf(manualSelector)) + selectors
+        val selectorArray = allSelectors.joinToString(",") { "'$it'" }
+        
         return """
             (function() {
-                var el = document.querySelector('$selector');
-                if (!el) return false;
-                var nativeValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')
-                    || Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-                if (nativeValueSetter && nativeValueSetter.set) {
-                    nativeValueSetter.set.call(el, '$escapedPrompt');
-                } else {
-                    el.value = '$escapedPrompt';
+                var selectors = [$selectorArray];
+                var el = null;
+                for (var s of selectors) {
+                    el = document.querySelector(s);
+                    if (el) break;
                 }
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                el.dispatchEvent(new Event('change', { bubbles: true }));
+                if (!el) return false;
+                
+                el.focus();
+                // Check if it's a rich editor or textarea
+                if (el.getAttribute('contenteditable') === 'true' || el.tagName === 'DIV') {
+                    document.execCommand('selectAll', false, null);
+                    document.execCommand('delete', false, null);
+                    document.execCommand('insertText', false, '$escapedPrompt');
+                } else {
+                    var nativeValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')
+                        || Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+                    if (nativeValueSetter && nativeValueSetter.set) {
+                        nativeValueSetter.set.call(el, '$escapedPrompt');
+                    } else {
+                        el.value = '$escapedPrompt';
+                    }
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
                 return true;
             })();
         """.trimIndent()
     }
 
-    fun getClickSendJs(selector: String): String {
+    fun getClickSendJsWithFallback(selectors: List<String>, manualSelector: String?): String {
+        val allSelectors = (if (manualSelector.isNullOrEmpty()) emptyList() else listOf(manualSelector)) + selectors
+        val selectorArray = allSelectors.joinToString(",") { "'$it'" }
         return """
             (function() {
-                var el = document.querySelector('$selector');
-                if (el) {
-                    el.click();
-                    return true;
+                var selectors = [$selectorArray];
+                for (var s of selectors) {
+                    var el = document.querySelector(s);
+                    if (el) {
+                        el.click();
+                        return true;
+                    }
                 }
                 return false;
             })();
         """.trimIndent()
     }
 
-    fun getExtractResponseJs(selector: String): String {
+    fun getExtractResponseJsWithFallback(selectors: List<String>, manualSelector: String?): String {
+        val allSelectors = (if (manualSelector.isNullOrEmpty()) emptyList() else listOf(manualSelector)) + selectors
+        val selectorArray = allSelectors.joinToString(",") { "'$it'" }
         return """
             (function() {
-                var els = document.querySelectorAll('$selector');
-                if (els.length > 0) {
-                    var lastEl = els[els.length - 1];
-                    return lastEl.innerText;
+                var selectors = [$selectorArray];
+                for (var s of selectors) {
+                    var els = document.querySelectorAll(s);
+                    if (els.length > 0) {
+                        var lastEl = els[els.length - 1];
+                        return lastEl.innerText;
+                    }
                 }
                 return null;
             })();

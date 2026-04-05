@@ -70,4 +70,33 @@ class OrderListViewModel @Inject constructor(
         val hidden = _hiddenBarcodes.value.size
         return hidden to total
     }
+
+    fun exportCsv(context: android.content.Context, uri: android.net.Uri) {
+        viewModelScope.launch {
+            val csv = StringBuilder()
+            csv.append("JAN,商品名,メーカー名,規格,スキャン日時,完了\n")
+            _items.value.forEach { info ->
+                val time = java.text.SimpleDateFormat("yyyy/MM/dd HH:mm:ss", java.util.Locale.JAPAN).format(java.util.Date(info.scanItem.scannedAt))
+                val status = if (info.isVisible) "未済" else "済"
+                csv.append("${info.scanItem.scannedBarcode},${info.product?.productName ?: ""},${info.product?.makerName ?: ""},${info.product?.spec ?: ""},$time,$status\n")
+            }
+            
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(csv.toString().toByteArray())
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun deleteItem(info: OrderItemInfo) {
+        viewModelScope.launch {
+            scanRepository.deleteItem(info.scanItem)
+            // After delete, the Flow from repository will trigger update if collected correctly.
+            // But here loadSession uses combine which collects perpetually. 
+            // So it should just work.
+        }
+    }
 }

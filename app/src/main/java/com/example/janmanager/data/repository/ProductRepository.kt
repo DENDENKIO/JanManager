@@ -93,6 +93,10 @@ class ProductRepository @Inject constructor(
     suspend fun getPackageUnitByBarcode(barcode: String): PackageUnit? {
         return packageUnitDao.getPackageUnitByBarcode(barcode)
     }
+
+    suspend fun deleteAllProducts() {
+        productDao.deleteAll()
+    }
 }
 
 enum class SearchType {

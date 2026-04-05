@@ -27,7 +27,10 @@ import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScanScreen(viewModel: ScanViewModel = hiltViewModel()) {
+fun ScanScreen(
+    onNavigateToAiFetch: () -> Unit,
+    viewModel: ScanViewModel = hiltViewModel()
+) {
     val currentTab by viewModel.currentTab.collectAsState()
     val tabs = ScanModeTab.entries.toTypedArray()
 
@@ -165,7 +168,10 @@ fun ScanScreen(viewModel: ScanViewModel = hiltViewModel()) {
             Box(modifier = Modifier.weight(1f)) {
                 when (currentTab) {
                     ScanModeTab.CONTINUOUS -> ContinuousMode(viewModel)
-                    ScanModeTab.CONFIRM -> ConfirmMode(viewModel)
+                    ScanModeTab.CONFIRM -> ConfirmMode(
+                        viewModel = viewModel,
+                        onNavigateToAiFetch = onNavigateToAiFetch
+                    )
                     ScanModeTab.LINKAGE -> LinkageMode(viewModel)
                 }
             }
