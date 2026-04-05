@@ -137,16 +137,57 @@ class AiFetchViewModel @Inject constructor(
     private suspend fun fetchProductInfo(product: ProductMaster): Boolean {
         _uiState.value = _uiState.value.copy(currentStatus = "${product.janCode} 取得中...")
         
+        // 0. Wait for WebView to be ready and on correct base URL
+        val targetBaseUrl = if (_uiState.value.aiUrl.orEmpty().contains("perplexity")) "perplexity.ai" else "gemini.google.com"
+        var isPageReady = false
+        for (wait in 0 until 10) {
+            val currentUrl = evaluateJsSync("window.location.href") ?: ""
+            if (currentUrl.contains(targetBaseUrl)) {
+                isPageReady = true
+                break
+            }
+            _uiState.value = _uiState.value.copy(currentStatus = "ページ遷移待ち... (${wait+1}/10)")
+            delay(1000)
+        }
+        
+        if (!isPageReady) {
+            _uiState.value = _uiState.value.copy(currentStatus = "エラー: ページが正しく読み込まれませんでした。")
+            return false
+        }
+
         val prompt = AiPromptBuilder.buildPrompt(product.janCode)
+        var lastError = ""
         
-        // 1. Inject Prompt using Fallback Chain
-        val injectJs = WebViewJsHelper.getInjectPromptJsWithFallback(inputSelectors, manualInputSelector, prompt)
-        evaluateJs(injectJs)
-        delay(1000)
+        // Retry Loop for Injection
+        for (retry in 0 until 3) {
+            _uiState.value = _uiState.value.copy(currentStatus = "${product.janCode} プロンプト注入中... (試行 ${retry + 1}/3)")
+            
+            // 1. Inject Prompt using Fallback Chain
+            val injectJs = WebViewJsHelper.getInjectPromptJsWithFallback(inputSelectors, manualInputSelector, prompt)
+            val injectSuccess = evaluateJsSync(injectJs) == "true"
+            
+            if (injectSuccess) {
+                delay(800)
+                // 2. Click Send using Fallback Chain
+                val sendJs = WebViewJsHelper.getClickSendJsWithFallback(sendSelectors, manualSendButtonSelector)
+                val sendSuccess = evaluateJsSync(sendJs) == "true"
+                if (sendSuccess) {
+                    lastError = ""
+                    break // Successfully injected and sent
+                } else {
+                    lastError = "送信ボタンが見つかりません"
+                }
+            } else {
+                lastError = "入力欄への貼り付け失敗"
+            }
+            delay(2000) // Wait before retry
+        }
         
-        // 2. Click Send using Fallback Chain
-        val sendJs = WebViewJsHelper.getClickSendJsWithFallback(sendSelectors, manualSendButtonSelector)
-        evaluateJs(sendJs)
+        if (lastError.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(currentStatus = "エラー: $lastError。AIサイトの構造が変わった可能性があります。")
+            return false
+        }
+        
         delay(2000) // Initial wait for generation
         
         // 3. Polling for response using Fallback Chain

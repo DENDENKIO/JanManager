@@ -312,23 +312,60 @@ class ScanViewModel @Inject constructor(
     }
 
     private suspend fun performSingleAiFetchInternal(janCode: String) {
-        val prompt = AiPromptBuilder.buildPrompt(janCode)
-        val injectJs = WebViewJsHelper.getInjectPromptJsWithFallback(inputSelectors, manualInputSelector, prompt)
-        webView?.post { webView?.evaluateJavascript(injectJs, null) }
-        delay(1000)
+        // 0. Wait for WebView to be ready and on correct base URL
+        val targetBaseUrl = if (_aiUrl.value.orEmpty().contains("perplexity")) "perplexity.ai" else "gemini.google.com"
+        var isPageReady = false
+        for (wait in 0 until 10) {
+            val currentUrl = evaluateJsSync("window.location.href") ?: ""
+            if (currentUrl.contains(targetBaseUrl)) {
+                isPageReady = true
+                break
+            }
+            _aiFetchStatus.value = "ページ遷移待ち... (${wait+1}/10)"
+            delay(1000)
+        }
         
-        val sendJs = WebViewJsHelper.getClickSendJsWithFallback(sendSelectors, manualSendButtonSelector)
-        webView?.post { webView?.evaluateJavascript(sendJs, null) }
+        if (!isPageReady) {
+            _aiFetchStatus.value = "エラー: ページ読み込み失敗"
+            return
+        }
+
+        val prompt = AiPromptBuilder.buildPrompt(janCode)
+        var lastError = ""
+        
+        // Retry Loop for Injection
+        for (retry in 0 until 3) {
+            _aiFetchStatus.value = "プロンプト注入中... (${retry + 1}/3)"
+            
+            val injectJs = WebViewJsHelper.getInjectPromptJsWithFallback(inputSelectors, manualInputSelector, prompt)
+            val injectSuccess = evaluateJsSync(injectJs) == "true"
+            
+            if (injectSuccess) {
+                delay(800)
+                val sendJs = WebViewJsHelper.getClickSendJsWithFallback(sendSelectors, manualSendButtonSelector)
+                val sendSuccess = evaluateJsSync(sendJs) == "true"
+                if (sendSuccess) {
+                    lastError = ""
+                    break 
+                } else {
+                    lastError = "送信ボタンが見つかりません"
+                }
+            } else {
+                lastError = "貼り付け失敗"
+            }
+            delay(2000)
+        }
+        
+        if (lastError.isNotEmpty()) {
+            _aiFetchStatus.value = "エラー: $lastError"
+            return
+        }
+        
+        delay(2000)
         
         for (i in 0 until 20) {
             val extractJs = WebViewJsHelper.getExtractResponseJsWithFallback(responseSelectors, manualResponseSelector)
-            val rawResponse = kotlin.coroutines.suspendCoroutine<String?> { continuation ->
-                webView?.post {
-                    webView?.evaluateJavascript(extractJs) { result: String? ->
-                        continuation.resume(result)
-                    }
-                }
-            }
+            val rawResponse = evaluateJsSync(extractJs)
             
             if (rawResponse != null && rawResponse != "null" && rawResponse.length > 2) {
                 val cleanResponse = rawResponse.removePrefix("\"").removeSuffix("\"").replace("\\n", "\n").replace("\\\"", "\"")
@@ -350,6 +387,16 @@ class ScanViewModel @Inject constructor(
                 }
             }
             delay(1000)
+        }
+    }
+
+    private suspend fun evaluateJsSync(script: String): String? {
+        return kotlin.coroutines.suspendCoroutine { continuation ->
+            webView?.post {
+                webView?.evaluateJavascript(script) { result ->
+                    continuation.resume(result)
+                }
+            }
         }
     }
 

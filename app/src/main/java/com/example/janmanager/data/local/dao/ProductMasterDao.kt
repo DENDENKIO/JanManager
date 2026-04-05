@@ -45,7 +45,7 @@ interface ProductMasterDao {
     @Query("SELECT * FROM product_master WHERE status = :status ORDER BY id DESC")
     fun getProductsByStatus(status: ProductStatus): Flow<List<ProductMaster>>
 
-    @Query("SELECT * FROM product_master WHERE info_fetched = 0 ORDER BY id ASC")
+    @Query("SELECT * FROM product_master WHERE info_fetched = 0 AND (product_name = '' OR maker_name = '') ORDER BY id ASC")
     fun getUnfetchedProducts(): Flow<List<ProductMaster>>
 
     @Query("DELETE FROM product_master")
