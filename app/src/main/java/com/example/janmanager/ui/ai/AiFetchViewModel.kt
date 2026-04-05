@@ -104,35 +104,42 @@ class AiFetchViewModel @Inject constructor(
         if (_uiState.value.unfetchedProducts.isEmpty()) return
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
+            // ★ 開始時点のリストのスナップショットを取る（Flowの更新でずれるのを防ぐ）
+            val productsToFetch = _uiState.value.unfetchedProducts.toList()
             _uiState.value = _uiState.value.copy(isRunning = true, currentIndex = 0)
-            while (_uiState.value.currentIndex < _uiState.value.unfetchedProducts.size
-                && _uiState.value.isRunning
-            ) {
-                val product = _uiState.value.unfetchedProducts[_uiState.value.currentIndex]
+
+            for (index in productsToFetch.indices) {
+                if (!_uiState.value.isRunning) break
+
+                val product = productsToFetch[index]
+                _uiState.value = _uiState.value.copy(currentIndex = index)
+
                 val result = interactor.executeFullFlow(product.janCode, targetBaseUrl) { status ->
                     _uiState.value = _uiState.value.copy(currentStatus = status)
                 }
 
-                if (result.success && result.data != null && _uiState.value.isRunning) {
+                if (result.success && result.data != null) {
                     _uiState.value = _uiState.value.copy(
-                        lastResult = result.data,
-                        showPreview = true,
-                        currentStatus = "取得成功"
+                        currentStatus = "取得成功: ${product.janCode} → 保存中..."
                     )
-                    // ユーザーが承認/却下するまで待機
-                    _proceedSignal.first()
-                } else if (_uiState.value.isRunning) {
+                    // ★ 自動保存（プレビュー確認なし）
+                    saveResult(product, result.data)
                     _uiState.value = _uiState.value.copy(
-                        currentStatus = "エラー: ${result.errorMessage ?: "不明なエラー"}"
+                        currentStatus = "保存完了: ${product.janCode}"
                     )
+                    // 次の商品へ進む前に少し待機（AIサイトの負荷軽減）
                     delay(2000)
-                }
-
-                if (_uiState.value.isRunning) {
-                    _uiState.value = _uiState.value.copy(currentIndex = _uiState.value.currentIndex + 1)
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        currentStatus = "エラー: ${product.janCode} - ${result.errorMessage ?: "不明"}"
+                    )
+                    delay(3000)
                 }
             }
-            _uiState.value = _uiState.value.copy(isRunning = false, currentStatus = "完了")
+            _uiState.value = _uiState.value.copy(
+                isRunning = false,
+                currentStatus = "完了（${productsToFetch.size}件処理）"
+            )
         }
     }
 
@@ -141,25 +148,33 @@ class AiFetchViewModel @Inject constructor(
         fetchJob?.cancel()
     }
 
+    private suspend fun saveResult(product: ProductMaster, result: AiResponseData) {
+        if (result.not_found) return  // 見つからなかった商品はスキップ
+
+        val updatedProduct = product.copy(
+            makerName = result.maker_name,
+            makerNameKana = result.maker_name_kana,
+            productName = result.product_name,
+            productNameKana = result.product_name_kana,
+            spec = result.spec,
+            infoFetched = true,
+            infoSource = if (_uiState.value.aiUrl.orEmpty().contains("gemini"))
+                InfoSource.AI_GEMINI else InfoSource.AI_PERPLEXITY,
+            updatedAt = System.currentTimeMillis()
+        )
+        repository.updateProduct(updatedProduct)
+        if (result.maker_name.isNotEmpty()) {
+            val prefix = product.janCode.take(7)
+            repository.cacheMaker(prefix, result.maker_name, result.maker_name_kana)
+        }
+    }
+
     fun onAcceptResult() {
         viewModelScope.launch {
             val result = _uiState.value.lastResult ?: return@launch
-            val product = _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex) ?: return@launch
-            val updatedProduct = product.copy(
-                makerName = result.maker_name,
-                makerNameKana = result.maker_name_kana,
-                productName = result.product_name,
-                productNameKana = result.product_name_kana,
-                spec = result.spec,
-                infoFetched = true,
-                infoSource = if (_uiState.value.aiUrl.orEmpty().contains("gemini")) InfoSource.AI_GEMINI else InfoSource.AI_PERPLEXITY,
-                updatedAt = System.currentTimeMillis()
-            )
-            repository.updateProduct(updatedProduct)
-            if (result.maker_name.isNotEmpty()) {
-                val prefix = product.janCode.take(7)
-                repository.cacheMaker(prefix, result.maker_name, result.maker_name_kana)
-            }
+            val product = _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
+                ?: return@launch
+            saveResult(product, result)
             _uiState.value = _uiState.value.copy(showPreview = false, lastResult = null)
             _proceedSignal.tryEmit(Unit)
         }
