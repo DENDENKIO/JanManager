@@ -55,8 +55,8 @@ fun AiWebViewWrapper(
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
-                        // SPA遷移後もBridgeが確実に使えるようにする
-                        // （通常は不要だが保険として）
+                        // SPA遷移後もBridgeが確実に使えるようにする（保険）
+                        onWebViewCreated(this@apply)
                     }
                 }
 

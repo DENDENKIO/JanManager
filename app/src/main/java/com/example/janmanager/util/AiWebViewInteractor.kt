@@ -203,253 +203,262 @@ class AiWebViewInteractor {
     ): String {
         return """
 (function() {
-    console.log('[JanManager] === AI Auto-fetch JS started ===');
-
-    /* --- Base64 decode --- */
-    var b64 = '$promptB64';
-    var prompt;
+    console.log('[JanManager] === AI Auto-fetch JS execution started ===');
+    
     try {
-        var bytes = Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); });
-        prompt = new TextDecoder('utf-8').decode(bytes);
-    } catch(e) {
-        console.error('[JanManager] Base64 decode failed:', e);
-        if (typeof JanBridge !== 'undefined') JanBridge.onError('Base64デコード失敗: ' + e.message);
-        return;
-    }
-    console.log('[JanManager] Prompt decoded, length=' + prompt.length);
-
-    var inputSelectors = [$inputSelArr];
-    var sendSelectors = [$sendSelArr];
-    var responseSelectors = [$responseSelArr];
-
-    /* ==== Phase 1: 入力欄を探す (最大30秒) ==== */
-    var findTries = 0;
-    var findMax = 100;
-
-    function findInput() {
-        /* まず id="ask-input" を直接試す (Perplexity) */
-        var byId = document.getElementById('ask-input');
-        if (byId) {
-            console.log('[JanManager] Found input by #ask-input');
-            return byId;
-        }
-        /* セレクタリストから探す */
-        for (var i = 0; i < inputSelectors.length; i++) {
-            try {
-                var el = document.querySelector(inputSelectors[i]);
-                if (el) {
-                    console.log('[JanManager] Found input by selector: ' + inputSelectors[i]);
-                    return el;
-                }
-            } catch(e) {}
-        }
-        return null;
-    }
-
-    function waitForInput() {
-        var el = findInput();
-        if (el) {
-            console.log('[JanManager] Input element found, proceeding to inject');
-            setTimeout(function(){ doInject(el); }, 500);
+        /* --- Base64 decode --- */
+        var b64 = '$promptB64';
+        var prompt;
+        try {
+            var bytes = Uint8Array.from(atob(b64), function(c){ return c.charCodeAt(0); });
+            prompt = new TextDecoder('utf-8').decode(bytes);
+        } catch(e) {
+            console.error('[JanManager] Base64 decode failed:', e);
+            if (typeof JanBridge !== 'undefined') JanBridge.onError('Base64デコード失敗: ' + e.message);
             return;
         }
-        findTries++;
-        if (findTries >= findMax) {
-            console.error('[JanManager] Input not found after ' + findMax + ' tries');
-            if (typeof JanBridge !== 'undefined') JanBridge.onError('入力欄が見つかりません（30秒タイムアウト）');
-            return;
-        }
-        if (findTries % 10 === 0) {
-            console.log('[JanManager] Waiting for input... try ' + findTries + '/' + findMax);
-        }
-        setTimeout(waitForInput, 300);
-    }
+        console.log('[JanManager] Prompt decoded, length=' + prompt.length);
 
-    /* ==== Phase 2: プロンプト注入 ==== */
-    function doInject(el) {
-        console.log('[JanManager] doInject: tag=' + el.tagName + ', contentEditable=' + el.contentEditable + ', id=' + el.id);
+        var inputSelectors = [$inputSelArr];
+        var sendSelectors = [$sendSelArr];
+        var responseSelectors = [$responseSelArr];
 
-        /* フォーカスを確実に当てる */
-        el.focus();
-        el.click();
+        /* ==== Phase 1: 入力欄を探す (最大30秒) ==== */
+        var findTries = 0;
+        var findMax = 100;
 
-        var isContentEditable = (el.contentEditable === 'true' || el.contentEditable === 'inherit'
-            || el.getAttribute('contenteditable') === 'true');
-
-        if (isContentEditable) {
-            console.log('[JanManager] ContentEditable mode');
-
-            /* カーソルを中の最初の子要素に設置 */
-            var child = el.querySelector('p') || el.querySelector('span') || el.firstChild;
-            if (child) {
+        function findInput() {
+            /* まず id="ask-input" を直接試す (Perplexity) */
+            var byId = document.getElementById('ask-input');
+            if (byId) {
+                console.log('[JanManager] Found input by #ask-input');
+                return byId;
+            }
+            /* セレクタリストから探す */
+            for (var i = 0; i < inputSelectors.length; i++) {
                 try {
-                    var range = document.createRange();
-                    range.selectNodeContents(child);
-                    range.collapse(false);
-                    var sel = window.getSelection();
-                    sel.removeAllRanges();
-                    sel.addRange(range);
-                } catch(e) {
-                    console.warn('[JanManager] Range setup failed:', e);
-                }
+                    var el = document.querySelector(inputSelectors[i]);
+                    if (el) {
+                        console.log('[JanManager] Found input by selector: ' + inputSelectors[i]);
+                        return el;
+                    }
+                } catch(e) {}
             }
-
-            /* execCommand方式 (GikobunAI実証済み) */
-            document.execCommand('selectAll', false, null);
-            document.execCommand('delete', false, null);
-            var insertOk = document.execCommand('insertText', false, prompt);
-            console.log('[JanManager] execCommand insertText result=' + insertOk);
-
-            /* insertText失敗時のフォールバック */
-            if (!insertOk || (el.innerText || '').trim().length < 10) {
-                console.log('[JanManager] insertText failed, trying innerText fallback');
-                el.innerText = prompt;
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        } else {
-            console.log('[JanManager] Textarea/Input mode');
-            /* textarea / input */
-            var nativeSetter = Object.getOwnPropertyDescriptor(
-                el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value'
-            );
-            if (nativeSetter && nativeSetter.set) {
-                nativeSetter.set.call(el, prompt);
-            } else {
-                el.value = prompt;
-            }
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
+            return null;
         }
 
-        /* 注入確認 */
-        setTimeout(function() {
-            var content = el.innerText || el.value || '';
-            console.log('[JanManager] After inject, content length=' + content.trim().length);
-            if (content.trim().length < 10) {
-                console.warn('[JanManager] Content seems empty after inject, retrying with paste event');
-                /* 最終手段: DataTransfer paste */
-                try {
-                    el.focus();
-                    var dt = new DataTransfer();
-                    dt.setData('text/plain', prompt);
-                    el.dispatchEvent(new ClipboardEvent('paste', {
-                        bubbles: true, cancelable: true, clipboardData: dt
-                    }));
-                } catch(e) { console.error('[JanManager] Paste fallback failed:', e); }
-            }
-            /* Phase 3: 送信 (さらに800ms待機) */
-            setTimeout(function(){ doSend(el); }, 800);
-        }, 500);
-    }
-
-    /* ==== Phase 3: 送信 ==== */
-    function doSend(inputEl) {
-        console.log('[JanManager] doSend: looking for send button');
-        var sent = false;
-
-        for (var i = 0; i < sendSelectors.length; i++) {
-            try {
-                var btn = document.querySelector(sendSelectors[i]);
-                if (btn && !btn.disabled) {
-                    console.log('[JanManager] Send button found: ' + sendSelectors[i]);
-                    btn.click();
-                    sent = true;
-                    break;
-                }
-            } catch(e) {}
-        }
-
-        /* Perplexity: data-testid 系も試す */
-        if (!sent) {
-            var alt = document.querySelector('[data-testid="ask-input-submit"]');
-            if (alt && !alt.disabled) {
-                console.log('[JanManager] Send button found by data-testid');
-                alt.click();
-                sent = true;
-            }
-        }
-
-        /* Enterキーフォールバック */
-        if (!sent) {
-            console.log('[JanManager] No send button found, trying Enter key');
-            try {
-                inputEl.focus();
-                inputEl.dispatchEvent(new KeyboardEvent('keydown', {
-                    key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
-                    bubbles: true, cancelable: true
-                }));
-                inputEl.dispatchEvent(new KeyboardEvent('keypress', {
-                    key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
-                    bubbles: true, cancelable: true
-                }));
-                inputEl.dispatchEvent(new KeyboardEvent('keyup', {
-                    key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
-                    bubbles: true, cancelable: true
-                }));
-            } catch(e) {}
-        }
-
-        console.log('[JanManager] Send attempted (sent=' + sent + '), starting response polling');
-
-        /* ==== Phase 4: レスポンス安定判定 ==== */
-        var lastLen = 0;
-        var stableCnt = 0;
-        var pollCount = 0;
-        var maxPoll = 160;
-
-        var t = setInterval(function() {
-            pollCount++;
-            if (pollCount > maxPoll) {
-                console.error('[JanManager] Response polling timeout');
-                if (typeof JanBridge !== 'undefined') JanBridge.onError('レスポンスタイムアウト');
+        function waitForInput() {
+            var el = findInput();
+            if (el) {
+                console.log('[JanManager] Input element found, proceeding to inject');
+                setTimeout(function(){ doInject(el); }, 500);
                 return;
             }
+            findTries++;
+            if (findTries >= findMax) {
+                console.error('[JanManager] Input not found after ' + findMax + ' tries');
+                if (typeof JanBridge !== 'undefined') JanBridge.onError('入力欄が見つかりません（30秒タイムアウト）');
+                return;
+            }
+            if (findTries % 10 === 0) {
+                console.log('[JanManager] Waiting for input... try ' + findTries + '/' + findMax);
+            }
+            setTimeout(waitForInput, 300);
+        }
 
-            for (var i = 0; i < responseSelectors.length; i++) {
+        /* ==== Phase 2: プロンプト注入 ==== */
+        function doInject(el) {
+            console.log('[JanManager] doInject: tag=' + el.tagName + ', contentEditable=' + el.contentEditable + ', id=' + el.id);
+
+            /* フォーカスを確実に当てる */
+            el.focus();
+            el.click();
+
+            var isContentEditable = (el.contentEditable === 'true' || el.contentEditable === 'inherit'
+                || el.getAttribute('contenteditable') === 'true');
+
+            if (isContentEditable) {
+                console.log('[JanManager] ContentEditable mode');
+
+                /* カーソルを中の最初の子要素に設置 */
+                var child = el.querySelector('p') || el.querySelector('span') || el.firstChild;
+                if (child) {
+                    try {
+                        var range = document.createRange();
+                        range.selectNodeContents(child);
+                        range.collapse(false);
+                        var sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    } catch(e) {
+                        console.warn('[JanManager] Range setup failed:', e);
+                    }
+                }
+
+                /* execCommand方式 (GikobunAI実証済み) */
+                document.execCommand('selectAll', false, null);
+                document.execCommand('delete', false, null);
+                var insertOk = document.execCommand('insertText', false, prompt);
+                console.log('[JanManager] execCommand insertText result=' + insertOk);
+
+                /* insertText失敗時のフォールバック */
+                if (!insertOk || (el.innerText || '').trim().length < 10) {
+                    console.log('[JanManager] insertText failed, trying innerText fallback');
+                    el.innerText = prompt;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            } else {
+                console.log('[JanManager] Textarea/Input mode');
+                /* textarea / input */
+                var nativeSetter = Object.getOwnPropertyDescriptor(
+                    el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value'
+                );
+                if (nativeSetter && nativeSetter.set) {
+                    nativeSetter.set.call(el, prompt);
+                } else {
+                    el.value = prompt;
+                }
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            /* 注入確認 */
+            setTimeout(function() {
+                var content = el.innerText || el.value || '';
+                console.log('[JanManager] After inject, content length=' + content.trim().length);
+                if (content.trim().length < 10) {
+                    console.warn('[JanManager] Content seems empty after inject, retrying with paste event');
+                    /* 最終手段: DataTransfer paste */
+                    try {
+                        el.focus();
+                        var dt = new DataTransfer();
+                        dt.setData('text/plain', prompt);
+                        el.dispatchEvent(new ClipboardEvent('paste', {
+                            bubbles: true, cancelable: true, clipboardData: dt
+                        }));
+                    } catch(e) { console.error('[JanManager] Paste fallback failed:', e); }
+                }
+                /* Phase 3: 送信 (さらに800ms待機) */
+                setTimeout(function(){ doSend(el); }, 800);
+            }, 500);
+        }
+
+        /* ==== Phase 3: 送信 ==== */
+        function doSend(inputEl) {
+            console.log('[JanManager] doSend: looking for send button');
+            var sent = false;
+
+            for (var i = 0; i < sendSelectors.length; i++) {
                 try {
-                    var els = document.querySelectorAll(responseSelectors[i]);
-                    if (els.length > 0) {
-                        var lastEl = els[els.length - 1];
-                        var text = (lastEl.innerText || lastEl.textContent || '').trim();
-                        var currentLen = text.length;
-
-                        if (currentLen > 40 && currentLen === lastLen) {
-                            stableCnt++;
-                        } else {
-                            stableCnt = 0;
-                        }
-                        lastLen = currentLen;
-
-                        if (stableCnt >= 6) {
-                            clearInterval(t);
-                            console.log('[JanManager] Response stable, length=' + currentLen);
-                            if (typeof JanBridge !== 'undefined') {
-                                JanBridge.onResult(text);
-                            } else {
-                                console.error('[JanManager] JanBridge is not available!');
-                            }
-                            return;
-                        }
+                    var btn = document.querySelector(sendSelectors[i]);
+                    if (btn && !btn.disabled) {
+                        console.log('[JanManager] Send button found: ' + sendSelectors[i]);
+                        btn.click();
+                        sent = true;
                         break;
                     }
                 } catch(e) {}
             }
 
-            if (pollCount % 20 === 0) {
-                console.log('[JanManager] Polling response... ' + pollCount + '/' + maxPoll + ', lastLen=' + lastLen);
+            /* Perplexity: data-testid 系も試す */
+            if (!sent) {
+                var alt = document.querySelector('[data-testid="ask-input-submit"]');
+                if (alt && !alt.disabled) {
+                    console.log('[JanManager] Send button found by data-testid');
+                    alt.click();
+                    sent = true;
+                }
             }
-        }, 500);
-    }
 
-    /* ==== 実行開始 ==== */
-    /* Bridge存在チェック */
-    if (typeof JanBridge === 'undefined') {
-        console.error('[JanManager] JanBridge is NOT defined! addJavascriptInterface may have failed.');
-    } else {
-        console.log('[JanManager] JanBridge is available');
-    }
+            /* Enterキーフォールバック */
+            if (!sent) {
+                console.log('[JanManager] No send button found, trying Enter key');
+                try {
+                    inputEl.focus();
+                    inputEl.dispatchEvent(new KeyboardEvent('keydown', {
+                        key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                        bubbles: true, cancelable: true
+                    }));
+                    inputEl.dispatchEvent(new KeyboardEvent('keypress', {
+                        key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                        bubbles: true, cancelable: true
+                    }));
+                    inputEl.dispatchEvent(new KeyboardEvent('keyup', {
+                        key: 'Enter', code: 'Enter', keyCode: 13, which: 13,
+                        bubbles: true, cancelable: true
+                    }));
+                } catch(e) {}
+            }
 
-    waitForInput();
+            console.log('[JanManager] Send attempted (sent=' + sent + '), starting response polling');
+
+            /* ==== Phase 4: レスポンス安定判定 ==== */
+            var lastLen = 0;
+            var stableCnt = 0;
+            var pollCount = 0;
+            var maxPoll = 160;
+
+            var t = setInterval(function() {
+                pollCount++;
+                if (pollCount > maxPoll) {
+                    console.error('[JanManager] Response polling timeout');
+                    if (typeof JanBridge !== 'undefined') JanBridge.onError('レスポンスタイムアウト');
+                    clearInterval(t);
+                    return;
+                }
+
+                for (var i = 0; i < responseSelectors.length; i++) {
+                    try {
+                        var els = document.querySelectorAll(responseSelectors[i]);
+                        if (els.length > 0) {
+                            var lastEl = els[els.length - 1];
+                            var text = (lastEl.innerText || lastEl.textContent || '').trim();
+                            var currentLen = text.length;
+
+                            if (currentLen > 40 && currentLen === lastLen) {
+                                stableCnt++;
+                            } else {
+                                stableCnt = 0;
+                            }
+                            lastLen = currentLen;
+
+                            if (stableCnt >= 6) {
+                                clearInterval(t);
+                                console.log('[JanManager] Response stable, length=' + currentLen);
+                                if (typeof JanBridge !== 'undefined') {
+                                    JanBridge.onResult(text);
+                                } else {
+                                    console.error('[JanManager] JanBridge is not available!');
+                                }
+                                return;
+                            }
+                            break;
+                        }
+                    } catch(e) {}
+                }
+
+                if (pollCount % 20 === 0) {
+                    console.log('[JanManager] Polling response... ' + pollCount + '/' + maxPoll + ', lastLen=' + lastLen);
+                }
+            }, 500);
+        }
+
+        /* ==== 実行開始 ==== */
+        /* Bridge存在チェック */
+        if (typeof JanBridge === 'undefined') {
+            console.error('[JanManager] JanBridge is NOT defined! addJavascriptInterface may have failed.');
+        } else {
+            console.log('[JanManager] JanBridge is available');
+        }
+
+        waitForInput();
+        
+    } catch(err) {
+        console.error('[JanManager] CRITICAL JS ERROR:', err);
+        if (typeof JanBridge !== 'undefined') {
+            JanBridge.onError('JS実行時エラー: ' + err.message);
+        }
+    }
 })();
         """.trimIndent()
     }
@@ -462,7 +471,7 @@ class AiWebViewInteractor {
     }
 
     private fun escapeSelectorForJs(selector: String): String {
-        return selector.replace("'", "\\'").replace("\\", "\\\\")
+        return selector.replace("\\", "\\\\").replace("'", "\\'")
     }
 
     private suspend fun evaluateJsSync(script: String): String? {
