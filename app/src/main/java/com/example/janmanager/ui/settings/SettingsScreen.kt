@@ -31,12 +31,13 @@ fun SettingsScreen(
     val isItfEnabled by viewModel.isItfEnabled.collectAsState()
     val scanSoundEnabled by viewModel.scanSoundEnabled.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
-    
+
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-    
+
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
-    
+    var showWebView by remember { mutableStateOf(false) }
+
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")
     ) { uri: Uri? ->
@@ -54,12 +55,22 @@ fun SettingsScreen(
     Scaffold(
         topBar = { TopAppBar(title = { Text("設定") }) }
     ) { padding ->
-        Column(
-            modifier = Modifier
+        // WebView表示中は外側のColumnスクロールを無効にし、WebView内スクロールを有効にする
+        val columnModifier = if (showWebView) {
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+        } else {
+            Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(scrollState)
-                .padding(16.dp),
+                .padding(16.dp)
+        }
+
+        Column(
+            modifier = columnModifier,
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             // AI Selection
@@ -77,9 +88,9 @@ fun SettingsScreen(
                         label = { Text("Perplexity") }
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 Text("貼り付け方式", style = MaterialTheme.typography.labelMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
@@ -97,22 +108,27 @@ fun SettingsScreen(
 
             // WebView Login & Selector Detection
             SettingsSection(title = "AIサイトログイン・セレクタ調整") {
-                var showWebView by remember { mutableStateOf(false) }
-                
                 Button(onClick = { showWebView = !showWebView }) {
                     Text(if (showWebView) "WebViewを閉じる" else "WebViewを表示してログイン")
                 }
-                
+
                 if (showWebView) {
                     val url = if (aiSelection == "PERPLEXITY") "https://www.perplexity.ai/" else "https://gemini.google.com/app?hl=ja"
-                    Column(modifier = Modifier.fillMaxWidth().height(450.dp)) {
+                    // WebView表示中は画面全体を使って縦スクロール可能にする
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
                         AiWebViewWrapper(
                             url = url,
                             onWebViewCreated = { webViewInstance = it },
                             modifier = Modifier.weight(1f)
                         )
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -123,101 +139,105 @@ fun SettingsScreen(
                         }
                     }
                 }
-                
-                OutlinedTextField(
-                    value = uiState.inputSelector,
-                    onValueChange = { viewModel.updateSelectors(it, uiState.sendButtonSelector, uiState.responseSelector) },
-                    label = { Text("入力欄セレクタ") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = uiState.sendButtonSelector,
-                    onValueChange = { viewModel.updateSelectors(uiState.inputSelector, it, uiState.responseSelector) },
-                    label = { Text("送信ボタンセレクタ") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = uiState.responseSelector,
-                    onValueChange = { viewModel.updateSelectors(uiState.inputSelector, uiState.sendButtonSelector, it) },
-                    label = { Text("回答エリアセレクタ") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
 
-            // Scanner Settings
-            SettingsSection(title = "スキャン設定") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("ITF(14桁)読み取りを許可", modifier = Modifier.weight(1f))
-                    Switch(checked = isItfEnabled, onCheckedChange = { viewModel.setItfEnabled(it) })
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("スキャン成功音", modifier = Modifier.weight(1f))
-                    Switch(checked = scanSoundEnabled, onCheckedChange = { viewModel.setScanSoundEnabled(it) })
+                if (!showWebView) {
+                    OutlinedTextField(
+                        value = uiState.inputSelector,
+                        onValueChange = { viewModel.updateSelectors(it, uiState.sendButtonSelector, uiState.responseSelector) },
+                        label = { Text("入力欄セレクタ") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = uiState.sendButtonSelector,
+                        onValueChange = { viewModel.updateSelectors(uiState.inputSelector, it, uiState.responseSelector) },
+                        label = { Text("送信ボタンセレクタ") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = uiState.responseSelector,
+                        onValueChange = { viewModel.updateSelectors(uiState.inputSelector, uiState.sendButtonSelector, it) },
+                        label = { Text("回答エリアセレクタ") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
-            // Data Management
-            SettingsSection(title = "データ管理") {
-                Button(
-                    onClick = { onNavigateToAiFetch() },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
-                ) {
-                    Text("未取得商品の一括AI取得")
-                }
-                
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { importLauncher.launch(arrayOf("text/comma-separated-values", "text/csv", "application/octet-stream")) },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("CSVインポート")
+            if (!showWebView) {
+                // Scanner Settings
+                SettingsSection(title = "スキャン設定") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("ITF(14桁)読み取りを許可", modifier = Modifier.weight(1f))
+                        Switch(checked = isItfEnabled, onCheckedChange = { viewModel.setItfEnabled(it) })
                     }
-                    Button(
-                        onClick = { exportLauncher.launch("product_master_${System.currentTimeMillis()}.csv") },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors()
-                    ) {
-                        Text("エクスポート")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("スキャン成功音", modifier = Modifier.weight(1f))
+                        Switch(checked = scanSoundEnabled, onCheckedChange = { viewModel.setScanSoundEnabled(it) })
                     }
                 }
-                
-                Button(
-                    onClick = { showDeleteConfirm = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("商品マスタを全削除")
-                }
-            }
-            
-            if (showDeleteConfirm) {
-                AlertDialog(
-                    onDismissRequest = { showDeleteConfirm = false },
-                    title = { Text("商品マスタの全削除") },
-                    text = { Text("登録されているすべての商品データが削除されます。この操作は取り消せませんが、よろしいですか？") },
-                    confirmButton = {
-                        TextButton(
-                            onClick = { 
-                                viewModel.deleteAllData()
-                                showDeleteConfirm = false 
-                            },
+
+                // Data Management
+                SettingsSection(title = "データ管理") {
+                    Button(
+                        onClick = { onNavigateToAiFetch() },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Text("未取得商品の一括AI取得")
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { importLauncher.launch(arrayOf("text/comma-separated-values", "text/csv", "application/octet-stream")) },
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Text("削除する", color = MaterialTheme.colorScheme.error)
+                            Text("CSVインポート")
                         }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showDeleteConfirm = false }) {
-                            Text("キャンセル")
+                        Button(
+                            onClick = { exportLauncher.launch("product_master_${System.currentTimeMillis()}.csv") },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors()
+                        ) {
+                            Text("エクスポート")
                         }
                     }
-                )
-            }
-            
-            // App Info
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Info, contentDescription = null, tint = Color.Gray)
-                Text("JAN Manager v1.0.0", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+
+                    Button(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("商品マスタを全削除")
+                    }
+                }
+
+                if (showDeleteConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showDeleteConfirm = false },
+                        title = { Text("商品マスタの全削除") },
+                        text = { Text("登録されているすべての商品データが削除されます。この操作は取り消せませんが、よろしいですか？") },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    viewModel.deleteAllData()
+                                    showDeleteConfirm = false
+                                },
+                            ) {
+                                Text("削除する", color = MaterialTheme.colorScheme.error)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDeleteConfirm = false }) {
+                                Text("キャンセル")
+                            }
+                        }
+                    )
+                }
+
+                // App Info
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = Color.Gray)
+                    Text("JAN Manager v1.0.0", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
