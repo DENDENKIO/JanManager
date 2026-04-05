@@ -16,6 +16,7 @@ import com.example.janmanager.util.ClipboardHelper
 import com.example.janmanager.util.WebViewJsHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
 data class AiFetchUiState(
@@ -32,7 +34,7 @@ data class AiFetchUiState(
     val currentStatus: String = "待機中",
     val lastResult: AiResponseData? = null,
     val showPreview: Boolean = false,
-    val aiUrl: String? = null  // null = 設定読み込み待ち
+    val aiUrl: String? = null
 )
 
 @HiltViewModel
@@ -48,12 +50,10 @@ class AiFetchViewModel @Inject constructor(
     private var fetchJob: Job? = null
     private val _proceedSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-    // Manual Selectors (from settings)
     private var manualInputSelector: String? = null
     private var manualSendButtonSelector: String? = null
     private var manualResponseSelector: String? = null
-    
-    // Fallback Chains
+
     private var inputSelectors: List<String> = WebViewJsHelper.GEMINI_INPUT_SELECTORS
     private var sendSelectors: List<String> = WebViewJsHelper.GEMINI_SEND_SELECTORS
     private var responseSelectors: List<String> = WebViewJsHelper.GEMINI_RESPONSE_SELECTORS
@@ -64,7 +64,6 @@ class AiFetchViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(unfetchedProducts = products)
             }
         }
-        
         viewModelScope.launch {
             val aiSelection = settingsDataStore.aiSelectionFlow.first()
             val url = if (aiSelection == "PERPLEXITY") {
@@ -73,8 +72,7 @@ class AiFetchViewModel @Inject constructor(
                 "https://gemini.google.com/app?hl=ja"
             }
             _uiState.value = _uiState.value.copy(aiUrl = url)
-            
-            // Update selectors based on AI selection
+
             if (aiSelection == "PERPLEXITY") {
                 inputSelectors = WebViewJsHelper.PERPLEXITY_INPUT_SELECTORS
                 sendSelectors = WebViewJsHelper.PERPLEXITY_SEND_SELECTORS
@@ -84,7 +82,7 @@ class AiFetchViewModel @Inject constructor(
                 sendSelectors = WebViewJsHelper.GEMINI_SEND_SELECTORS
                 responseSelectors = WebViewJsHelper.GEMINI_RESPONSE_SELECTORS
             }
-            
+
             val config = settingsDataStore.selectorConfigFlow.first()
             if (config.isNotEmpty()) {
                 val parts = config.split("|")
@@ -103,28 +101,22 @@ class AiFetchViewModel @Inject constructor(
 
     fun startAutoFetch() {
         if (_uiState.value.unfetchedProducts.isEmpty()) return
-        
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRunning = true, currentIndex = 0)
-            
-            while (_uiState.value.currentIndex < _uiState.value.unfetchedProducts.size && _uiState.value.isRunning) {
+            while (_uiState.value.currentIndex < _uiState.value.unfetchedProducts.size
+                && _uiState.value.isRunning) {
                 val product = _uiState.value.unfetchedProducts[_uiState.value.currentIndex]
                 val success = fetchProductInfo(product)
-                
                 if (success && _uiState.value.isRunning) {
-                    // Wait for user to Accept or Reject
                     _proceedSignal.first()
                 } else if (_uiState.value.isRunning) {
-                    // Failure or timeout: wait a bit before next or let user handle
                     delay(2000)
                 }
-                
                 if (_uiState.value.isRunning) {
                     _uiState.value = _uiState.value.copy(currentIndex = _uiState.value.currentIndex + 1)
                 }
             }
-            
             _uiState.value = _uiState.value.copy(isRunning = false, currentStatus = "完了")
         }
     }
@@ -136,77 +128,83 @@ class AiFetchViewModel @Inject constructor(
 
     private suspend fun fetchProductInfo(product: ProductMaster): Boolean {
         _uiState.value = _uiState.value.copy(currentStatus = "${product.janCode} 取得中...")
-        
-        // 0. Wait for WebView to be ready and on correct base URL
+
+        // WebView導通確認
         val targetBaseUrl = if (_uiState.value.aiUrl.orEmpty().contains("perplexity")) "perplexity.ai" else "gemini.google.com"
         var isPageReady = false
-        for (wait in 0 until 10) {
+        for (wait in 0 until 15) {
             val currentUrl = evaluateJsSync("window.location.href") ?: ""
             if (currentUrl.contains(targetBaseUrl)) {
                 isPageReady = true
                 break
             }
-            _uiState.value = _uiState.value.copy(currentStatus = "ページ遷移待ち... (${wait+1}/10)")
+            _uiState.value = _uiState.value.copy(currentStatus = "ページ遷移待ち... (${wait + 1}/15)")
             delay(1000)
         }
-        
         if (!isPageReady) {
-            _uiState.value = _uiState.value.copy(currentStatus = "エラー: ページが正しく読み込まれませんでした。")
+            _uiState.value = _uiState.value.copy(currentStatus = "エラー: ページが読み込まれませんでした。")
             return false
         }
 
         val prompt = AiPromptBuilder.buildPrompt(product.janCode)
         var lastError = ""
-        
-        // Retry Loop for Injection
+
         for (retry in 0 until 3) {
             _uiState.value = _uiState.value.copy(currentStatus = "${product.janCode} プロンプト注入中... (試行 ${retry + 1}/3)")
-            
-            // 1. Inject Prompt using Fallback Chain
+
             val injectJs = WebViewJsHelper.getInjectPromptJsWithFallback(inputSelectors, manualInputSelector, prompt)
-            val injectSuccess = evaluateJsSync(injectJs) == "true"
-            
+            val injectResult = evaluateJsSync(injectJs)
+            // 修正点: 'true' 文字列で比較（evaluateJavascriptは値をJSON文字列として返すためクォート付きも考慮）
+            val injectSuccess = injectResult == "true" || injectResult == "\"true\""
+
             if (injectSuccess) {
-                delay(800)
-                // 2. Click Send using Fallback Chain
+                delay(1000)
                 val sendJs = WebViewJsHelper.getClickSendJsWithFallback(sendSelectors, manualSendButtonSelector)
-                val sendSuccess = evaluateJsSync(sendJs) == "true"
+                val sendResult = evaluateJsSync(sendJs)
+                val sendSuccess = sendResult == "true" || sendResult == "\"true\""
                 if (sendSuccess) {
                     lastError = ""
-                    break // Successfully injected and sent
+                    break
                 } else {
                     lastError = "送信ボタンが見つかりません"
                 }
             } else {
                 lastError = "入力欄への貼り付け失敗"
             }
-            delay(2000) // Wait before retry
+            delay(2000)
         }
-        
+
         if (lastError.isNotEmpty()) {
             _uiState.value = _uiState.value.copy(currentStatus = "エラー: $lastError。AIサイトの構造が変わった可能性があります。")
             return false
         }
-        
-        delay(2000) // Initial wait for generation
-        
-        // 3. Polling for response using Fallback Chain
+
+        delay(2000)
+
+        // レスポンスポーリング（最大30秒）
         var result: AiResponseData? = null
-        for (i in 0 until 20) { // Max 20 seconds polling
+        for (i in 0 until 30) {
             if (!_uiState.value.isRunning) break
-            
             val extractJs = WebViewJsHelper.getExtractResponseJsWithFallback(responseSelectors, manualResponseSelector)
             val rawResponse = evaluateJsSync(extractJs)
-            
-            if (rawResponse != null && rawResponse != "null" && rawResponse.length > 2) {
-                val cleanResponse = rawResponse.removePrefix("\"").removeSuffix("\"").replace("\\n", "\n").replace("\\\"", "\"")
-                when (val parseResult = AiResponseParser.parseResponse(cleanResponse, product.janCode)) {
+
+            if (!rawResponse.isNullOrBlank() && rawResponse != "null") {
+                // evaluateJavascriptは文字列をクォートで囲んで返すため両方に対応
+                val cleaned = rawResponse
+                    .removePrefix("\"")
+                    .removeSuffix("\"")
+                    .replace("\\n", "\n")
+                    .replace("\\t", "\t")
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\")
+                    .trim()
+
+                when (val parseResult = AiResponseParser.parseResponse(cleaned, product.janCode)) {
                     is AiParseResult.Success -> {
                         result = parseResult.data
                         break
                     }
                     is AiParseResult.NotFound -> {
-                        // AI found nothing, but it's a valid response
                         result = AiResponseData(jan_code = product.janCode, not_found = true)
                         break
                     }
@@ -214,39 +212,47 @@ class AiFetchViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(currentStatus = "JAN不一致: ${parseResult.actual}")
                     }
                     is AiParseResult.InvalidFormat -> {
-                        // Still polling, maybe it's not complete yet
+                        // まだ生成中の可能性があるのでポーリング続行
                     }
                 }
             }
             delay(1000)
         }
-        
-        if (result != null) {
+
+        return if (result != null) {
             _uiState.value = _uiState.value.copy(
                 lastResult = result,
                 showPreview = true,
                 currentStatus = "取得成功"
             )
-            return true
+            true
         } else {
             _uiState.value = _uiState.value.copy(currentStatus = "取得失敗（タイムアウト）")
-            return false
+            false
         }
     }
 
-    private fun evaluateJs(script: String) {
-        webView?.post {
-            webView?.evaluateJavascript(script, null)
-        }
-    }
-
+    /**
+     * WebViewがnullの場合に永久ハングしないようタイムアウト付きコルーチンに修正。
+     * evaluateJavascriptの必須属性: UIスレッド(post)で実行し、
+     * コールバックが返ったらcontinuationを安全にresumeする。
+     */
     private suspend fun evaluateJsSync(script: String): String? {
-        return kotlin.coroutines.suspendCoroutine { continuation ->
-            webView?.post {
-                webView?.evaluateJavascript(script) { result ->
-                    continuation.resumeWith(Result.success(result))
+        val wv = webView ?: return null  // nullならすぐ返却（ハング防止）
+        return try {
+            withTimeout(10_000L) {  // 10秒タイムアウト
+                kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+                    wv.post {
+                        wv.evaluateJavascript(script) { result ->
+                            if (continuation.isActive) {
+                                continuation.resumeWith(Result.success(result))
+                            }
+                        }
+                    }
                 }
             }
+        } catch (e: TimeoutCancellationException) {
+            null
         }
     }
 
@@ -254,7 +260,6 @@ class AiFetchViewModel @Inject constructor(
         viewModelScope.launch {
             val result = _uiState.value.lastResult ?: return@launch
             val product = _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex) ?: return@launch
-            
             val updatedProduct = product.copy(
                 makerName = result.maker_name,
                 makerNameKana = result.maker_name_kana,
@@ -266,13 +271,10 @@ class AiFetchViewModel @Inject constructor(
                 updatedAt = System.currentTimeMillis()
             )
             repository.updateProduct(updatedProduct)
-            
-            // Also cache maker if available
             if (result.maker_name.isNotEmpty()) {
                 val prefix = product.janCode.take(7)
                 repository.cacheMaker(prefix, result.maker_name, result.maker_name_kana)
             }
-            
             _uiState.value = _uiState.value.copy(showPreview = false, lastResult = null)
             _proceedSignal.tryEmit(Unit)
         }
@@ -292,15 +294,17 @@ class AiFetchViewModel @Inject constructor(
     fun tryManualCapture(context: Context) {
         viewModelScope.launch {
             val product = _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex) ?: return@launch
-            
-            // Try DOM extraction with fallback
             val extractJs = WebViewJsHelper.getExtractResponseJsWithFallback(responseSelectors, manualResponseSelector)
             val rawResponse = evaluateJsSync(extractJs)
-            var cleanResponse = rawResponse?.removePrefix("\"")?.removeSuffix("\"")?.replace("\\n", "\n")?.replace("\\\"", "\"")
-            
+            val cleanResponse = rawResponse
+                ?.removePrefix("\"")
+                ?.removeSuffix("\"")
+                ?.replace("\\n", "\n")
+                ?.replace("\\\"", "\"")
+                ?.trim()
+
             var parseResult = cleanResponse?.let { AiResponseParser.parseResponse(it, product.janCode) }
-            
-            // Fallback to clipboard if not success
+
             if (parseResult !is AiParseResult.Success) {
                 val clipboardText = ClipboardHelper.readFromClipboard(context)
                 val cbResult = clipboardText?.let { AiResponseParser.parseResponse(it, product.janCode) }
@@ -308,7 +312,7 @@ class AiFetchViewModel @Inject constructor(
                     parseResult = cbResult
                 }
             }
-            
+
             if (parseResult is AiParseResult.Success) {
                 _uiState.value = _uiState.value.copy(
                     lastResult = parseResult.data,
@@ -316,7 +320,7 @@ class AiFetchViewModel @Inject constructor(
                     currentStatus = "手動取得成功"
                 )
             } else {
-                val errorMsg = when(parseResult) {
+                val errorMsg = when (parseResult) {
                     is AiParseResult.JanMismatch -> "JAN不一致: ${parseResult.actual}"
                     is AiParseResult.InvalidFormat -> "形式エラー"
                     is AiParseResult.NotFound -> "見つかりません"
