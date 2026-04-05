@@ -51,6 +51,13 @@ class AiFetchViewModel @Inject constructor(
     private val interactor = AiWebViewInteractor()
     private var targetBaseUrl: String = "gemini.google.com"
 
+    /**
+     * 修正: 現在ループで処理中の商品をスナップショットとして保持するフィールド。
+     * DB保存後に unfetchedProducts Flow が再発火してリストが縮小しても、
+     * このフィールドが指す商品は変わらないためJAN不一致が発生しない。
+     */
+    private var currentProduct: ProductMaster? = null
+
     init {
         viewModelScope.launch {
             repository.getUnfetchedProducts().collect { products ->
@@ -104,14 +111,19 @@ class AiFetchViewModel @Inject constructor(
         if (_uiState.value.unfetchedProducts.isEmpty()) return
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
-            // ★ 開始時点のリストのスナップショットを取る（Flowの更新でずれるのを防ぐ）
+            // 開始時のリストをスナップショットとして固定する
+            // → DB保存による Flow 再発火でリストが縮小してもスナップショットは変わらない
             val productsToFetch = _uiState.value.unfetchedProducts.toList()
             _uiState.value = _uiState.value.copy(isRunning = true, currentIndex = 0)
 
             for (index in productsToFetch.indices) {
                 if (!_uiState.value.isRunning) break
 
+                // 修正: スナップショットから取得し currentProduct に保持
+                // onAcceptResult・ copyPromptToClipboard・ tryManualCapture が
+                // この値を参照するのでリスト履歴の影響を受けない
                 val product = productsToFetch[index]
+                currentProduct = product
                 _uiState.value = _uiState.value.copy(currentIndex = index)
 
                 val result = interactor.executeFullFlow(product.janCode, targetBaseUrl) { status ->
@@ -122,7 +134,7 @@ class AiFetchViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         currentStatus = "取得成功: ${product.janCode} → 保存中..."
                     )
-                    // ★ 自動保存（プレビュー確認なし）
+                    // 自動保存（プレビュー確認なし）
                     saveResult(product, result.data)
                     _uiState.value = _uiState.value.copy(
                         currentStatus = "保存完了: ${product.janCode}"
@@ -136,6 +148,7 @@ class AiFetchViewModel @Inject constructor(
                     delay(3000)
                 }
             }
+            currentProduct = null
             _uiState.value = _uiState.value.copy(
                 isRunning = false,
                 currentStatus = "完了（${productsToFetch.size}件処理）"
@@ -144,6 +157,7 @@ class AiFetchViewModel @Inject constructor(
     }
 
     fun stopFetch() {
+        currentProduct = null
         _uiState.value = _uiState.value.copy(isRunning = false, currentStatus = "停止中")
         fetchJob?.cancel()
     }
@@ -172,7 +186,11 @@ class AiFetchViewModel @Inject constructor(
     fun onAcceptResult() {
         viewModelScope.launch {
             val result = _uiState.value.lastResult ?: return@launch
-            val product = _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
+            // 修正: currentProduct スナップショットを優先する
+            // → saveResult 後に unfetchedProducts が再発火しても、
+            //   すでに product を確定しているのでJAN不一致しない
+            val product = currentProduct
+                ?: _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
                 ?: return@launch
             saveResult(product, result)
             _uiState.value = _uiState.value.copy(showPreview = false, lastResult = null)
@@ -186,14 +204,20 @@ class AiFetchViewModel @Inject constructor(
     }
 
     fun copyPromptToClipboard(context: Context) {
-        val product = _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex) ?: return
+        // 修正: currentProduct スナップショットを優先する
+        val product = currentProduct
+            ?: _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
+            ?: return
         val prompt = AiPromptBuilder.buildPrompt(product.janCode)
         ClipboardHelper.copyToClipboard(context, prompt)
     }
 
     fun tryManualCapture(context: Context) {
         viewModelScope.launch {
-            val product = _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex) ?: return@launch
+            // 修正: currentProduct スナップショットを優先する
+            val product = currentProduct
+                ?: _uiState.value.unfetchedProducts.getOrNull(_uiState.value.currentIndex)
+                ?: return@launch
 
             // WebViewから取得を試みる
             var parseResult = interactor.extractCurrentResponse(product.janCode)
