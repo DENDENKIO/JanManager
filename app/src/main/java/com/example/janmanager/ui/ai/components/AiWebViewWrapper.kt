@@ -24,7 +24,7 @@ fun AiWebViewWrapper(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                
+
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
@@ -36,13 +36,25 @@ fun AiWebViewWrapper(
                     domStorageEnabled = true
                     loadWithOverviewMode = true
                     useWideViewPort = true
-                    
+
+                    // スクロール・ズーム有効化
+                    setSupportZoom(true)
+                    builtInZoomControls = true
+                    displayZoomControls = false
+
                     // Remove "; wv" from UserAgent as requested
                     val originalUserAgent = userAgentString
                     userAgentString = originalUserAgent.replace("; wv", "")
-                    
+
                     cacheMode = WebSettings.LOAD_DEFAULT
                 }
+
+                // スクロールバー表示
+                isVerticalScrollBarEnabled = true
+                isHorizontalScrollBarEnabled = true
+
+                // Composeの親スクロールとの競合を防ぐ
+                isNestedScrollingEnabled = false
 
                 // Cookie settings
                 val cookieManager = CookieManager.getInstance()
