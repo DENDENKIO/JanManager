@@ -69,8 +69,9 @@ class AiWebViewInteractor {
         fun onResult(text: String?) {
             Log.d(TAG, "onResult called, length=${text?.length ?: 0}")
             mainHandler.post {
-                pendingResultCallback?.invoke(text)
+                val cb = pendingResultCallback
                 pendingResultCallback = null
+                cb?.invoke(text)
             }
         }
 
@@ -78,8 +79,9 @@ class AiWebViewInteractor {
         fun onError(message: String?) {
             Log.w(TAG, "onError called: $message")
             mainHandler.post {
-                pendingResultCallback?.invoke(null)
+                val cb = pendingResultCallback
                 pendingResultCallback = null
+                cb?.invoke(null)
             }
         }
     }
@@ -104,6 +106,9 @@ class AiWebViewInteractor {
             return FetchResult(false, errorMessage = "WebViewが初期化されていません")
         }
 
+        // 前回のコールバックが残っていたらキャンセルして競合を防ぐ
+        pendingResultCallback = null
+
         onStatus("$janCode 実行中...")
 
         val prompt = AiPromptBuilder.buildPrompt(janCode)
@@ -118,8 +123,8 @@ class AiWebViewInteractor {
         val allSend = buildSelectorList(sendSelectors, manualSendButtonSelector)
         val allResponse = buildSelectorList(responseSelectors, manualResponseSelector)
 
-        val inputArr = allInput.joinToString(",") { "'${escapeSelectorForJs(it)}'" }
-        val sendArr = allSend.joinToString(",") { "'${escapeSelectorForJs(it)}'" }
+        val inputArr  = allInput.joinToString(",")    { "'${escapeSelectorForJs(it)}'" }
+        val sendArr   = allSend.joinToString(",")     { "'${escapeSelectorForJs(it)}'" }
         val responseArr = allResponse.joinToString(",") { "'${escapeSelectorForJs(it)}'" }
 
         val js = buildAllInOneJs(promptB64, inputArr, sendArr, responseArr)
@@ -153,8 +158,8 @@ class AiWebViewInteractor {
         Log.d(TAG, "Raw response length: ${rawResponse.length}")
 
         return when (val parseResult = AiResponseParser.parseResponse(rawResponse, janCode)) {
-            is AiParseResult.Success -> FetchResult(true, data = parseResult.data)
-            is AiParseResult.NotFound -> FetchResult(true, data = AiResponseData(jan_code = janCode, not_found = true))
+            is AiParseResult.Success     -> FetchResult(true, data = parseResult.data)
+            is AiParseResult.NotFound    -> FetchResult(true, data = AiResponseData(jan_code = janCode, not_found = true))
             is AiParseResult.JanMismatch -> FetchResult(false, errorMessage = "JAN不一致: expected=$janCode, actual=${parseResult.actual}")
             is AiParseResult.InvalidFormat -> FetchResult(false, errorMessage = "レスポンスの形式が不正です")
         }
@@ -193,7 +198,14 @@ class AiWebViewInteractor {
     }
 
     // ---------------------------------------------------------------
-    // 統合JS（GikobunAI方式を完全移植 + デバッグログ付き）
+    // 統合JS
+    //
+    // 修正ポイント:
+    //  1. 送信前に既存レスポンス要素数(baseResponseCount)を記録
+    //     → 送信後は要素数が増えた（新しい応答が追加された）後のみ監視開始
+    //     → 前回の応答を誤って安定判定しなくなる
+    //  2. 送信成功後に入力欄を明示的にクリア
+    //     → 次回ループで前回プロンプトが混入しなくなる
     // ---------------------------------------------------------------
     private fun buildAllInOneJs(
         promptB64: String,
@@ -204,7 +216,7 @@ class AiWebViewInteractor {
         return """
 (function() {
     console.log('[JanManager] === AI Auto-fetch JS execution started ===');
-    
+
     try {
         /* --- Base64 decode --- */
         var b64 = '$promptB64';
@@ -219,38 +231,64 @@ class AiWebViewInteractor {
         }
         console.log('[JanManager] Prompt decoded, length=' + prompt.length);
 
-        var inputSelectors = [$inputSelArr];
-        var sendSelectors = [$sendSelArr];
+        var inputSelectors   = [$inputSelArr];
+        var sendSelectors    = [$sendSelArr];
         var responseSelectors = [$responseSelArr];
 
         /* ==== Phase 1: 入力欄を探す (最大30秒) ==== */
         var findTries = 0;
-        var findMax = 100;
+        var findMax   = 100;
 
         function findInput() {
-            /* まず id="ask-input" を直接試す (Perplexity) */
             var byId = document.getElementById('ask-input');
-            if (byId) {
-                console.log('[JanManager] Found input by #ask-input');
-                return byId;
-            }
-            /* セレクタリストから探す */
+            if (byId) return byId;
             for (var i = 0; i < inputSelectors.length; i++) {
                 try {
                     var el = document.querySelector(inputSelectors[i]);
-                    if (el) {
-                        console.log('[JanManager] Found input by selector: ' + inputSelectors[i]);
-                        return el;
-                    }
+                    if (el) return el;
                 } catch(e) {}
             }
             return null;
         }
 
+        function countCurrentResponses() {
+            for (var i = 0; i < responseSelectors.length; i++) {
+                try {
+                    var els = document.querySelectorAll(responseSelectors[i]);
+                    if (els.length > 0) return els.length;
+                } catch(e) {}
+            }
+            return 0;
+        }
+
+        function clearInput(el) {
+            try {
+                var isContentEditable = (el.contentEditable === 'true' ||
+                    el.contentEditable === 'inherit' ||
+                    el.getAttribute('contenteditable') === 'true');
+                if (isContentEditable) {
+                    el.focus();
+                    document.execCommand('selectAll', false, null);
+                    document.execCommand('delete', false, null);
+                    /* execCommandが効かない場合のフォールバック */
+                    if ((el.innerText || '').trim().length > 0) {
+                        el.innerText = '';
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                } else {
+                    el.value = '';
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                console.log('[JanManager] Input cleared');
+            } catch(e) {
+                console.warn('[JanManager] clearInput failed:', e);
+            }
+        }
+
         function waitForInput() {
             var el = findInput();
             if (el) {
-                console.log('[JanManager] Input element found, proceeding to inject');
+                console.log('[JanManager] Input element found');
                 setTimeout(function(){ doInject(el); }, 500);
                 return;
             }
@@ -268,83 +306,84 @@ class AiWebViewInteractor {
 
         /* ==== Phase 2: プロンプト注入 ==== */
         function doInject(el) {
-            console.log('[JanManager] doInject: tag=' + el.tagName + ', contentEditable=' + el.contentEditable + ', id=' + el.id);
+            console.log('[JanManager] doInject: tag=' + el.tagName + ', contentEditable=' + el.contentEditable);
 
-            /* フォーカスを確実に当てる */
+            /* 注入前に入力欄をクリア（前回プロンプト混入防止） */
+            clearInput(el);
+
             el.focus();
             el.click();
 
-            var isContentEditable = (el.contentEditable === 'true' || el.contentEditable === 'inherit'
-                || el.getAttribute('contenteditable') === 'true');
+            var isContentEditable = (el.contentEditable === 'true' ||
+                el.contentEditable === 'inherit' ||
+                el.getAttribute('contenteditable') === 'true');
 
-            if (isContentEditable) {
-                console.log('[JanManager] ContentEditable mode');
-
-                /* カーソルを中の最初の子要素に設置 */
-                var child = el.querySelector('p') || el.querySelector('span') || el.firstChild;
-                if (child) {
-                    try {
-                        var range = document.createRange();
-                        range.selectNodeContents(child);
-                        range.collapse(false);
-                        var sel = window.getSelection();
-                        sel.removeAllRanges();
-                        sel.addRange(range);
-                    } catch(e) {
-                        console.warn('[JanManager] Range setup failed:', e);
-                    }
-                }
-
-                /* execCommand方式 (GikobunAI実証済み) */
-                document.execCommand('selectAll', false, null);
-                document.execCommand('delete', false, null);
-                var insertOk = document.execCommand('insertText', false, prompt);
-                console.log('[JanManager] execCommand insertText result=' + insertOk);
-
-                /* insertText失敗時のフォールバック */
-                if (!insertOk || (el.innerText || '').trim().length < 10) {
-                    console.log('[JanManager] insertText failed, trying innerText fallback');
-                    el.innerText = prompt;
-                    el.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-            } else {
-                console.log('[JanManager] Textarea/Input mode');
-                /* textarea / input */
-                var nativeSetter = Object.getOwnPropertyDescriptor(
-                    el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value'
-                );
-                if (nativeSetter && nativeSetter.set) {
-                    nativeSetter.set.call(el, prompt);
-                } else {
-                    el.value = prompt;
-                }
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-
-            /* 注入確認 */
+            /* 200ms待ってからテキスト挿入（クリア後の安定を待つ） */
             setTimeout(function() {
-                var content = el.innerText || el.value || '';
-                console.log('[JanManager] After inject, content length=' + content.trim().length);
-                if (content.trim().length < 10) {
-                    console.warn('[JanManager] Content seems empty after inject, retrying with paste event');
-                    /* 最終手段: DataTransfer paste */
-                    try {
-                        el.focus();
-                        var dt = new DataTransfer();
-                        dt.setData('text/plain', prompt);
-                        el.dispatchEvent(new ClipboardEvent('paste', {
-                            bubbles: true, cancelable: true, clipboardData: dt
-                        }));
-                    } catch(e) { console.error('[JanManager] Paste fallback failed:', e); }
+                if (isContentEditable) {
+                    console.log('[JanManager] ContentEditable mode');
+                    var child = el.querySelector('p') || el.querySelector('span') || el.firstChild;
+                    if (child) {
+                        try {
+                            var range = document.createRange();
+                            range.selectNodeContents(child);
+                            range.collapse(false);
+                            var sel = window.getSelection();
+                            sel.removeAllRanges();
+                            sel.addRange(range);
+                        } catch(e) {
+                            console.warn('[JanManager] Range setup failed:', e);
+                        }
+                    }
+                    document.execCommand('selectAll', false, null);
+                    document.execCommand('delete', false, null);
+                    var insertOk = document.execCommand('insertText', false, prompt);
+                    console.log('[JanManager] execCommand insertText result=' + insertOk);
+
+                    if (!insertOk || (el.innerText || '').trim().length < 10) {
+                        console.log('[JanManager] insertText failed, trying innerText fallback');
+                        el.innerText = prompt;
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                } else {
+                    console.log('[JanManager] Textarea/Input mode');
+                    var nativeSetter = Object.getOwnPropertyDescriptor(
+                        el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value'
+                    );
+                    if (nativeSetter && nativeSetter.set) {
+                        nativeSetter.set.call(el, prompt);
+                    } else {
+                        el.value = prompt;
+                    }
+                    el.dispatchEvent(new Event('input',  { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-                /* Phase 3: 送信 (さらに800ms待機) */
-                setTimeout(function(){ doSend(el); }, 800);
-            }, 500);
+
+                /* 注入確認 */
+                setTimeout(function() {
+                    var content = el.innerText || el.value || '';
+                    console.log('[JanManager] After inject, content length=' + content.trim().length);
+                    if (content.trim().length < 10) {
+                        console.warn('[JanManager] Content seems empty after inject, retrying with paste event');
+                        try {
+                            el.focus();
+                            var dt = new DataTransfer();
+                            dt.setData('text/plain', prompt);
+                            el.dispatchEvent(new ClipboardEvent('paste', {
+                                bubbles: true, cancelable: true, clipboardData: dt
+                            }));
+                        } catch(e) { console.error('[JanManager] Paste fallback failed:', e); }
+                    }
+                    /* 送信前に既存レスポンス数を記録 */
+                    var baseResponseCount = countCurrentResponses();
+                    console.log('[JanManager] baseResponseCount=' + baseResponseCount);
+                    setTimeout(function(){ doSend(el, baseResponseCount); }, 800);
+                }, 500);
+            }, 200);
         }
 
         /* ==== Phase 3: 送信 ==== */
-        function doSend(inputEl) {
+        function doSend(inputEl, baseResponseCount) {
             console.log('[JanManager] doSend: looking for send button');
             var sent = false;
 
@@ -360,7 +399,6 @@ class AiWebViewInteractor {
                 } catch(e) {}
             }
 
-            /* Perplexity: data-testid 系も試す */
             if (!sent) {
                 var alt = document.querySelector('[data-testid="ask-input-submit"]');
                 if (alt && !alt.disabled) {
@@ -370,7 +408,6 @@ class AiWebViewInteractor {
                 }
             }
 
-            /* Enterキーフォールバック */
             if (!sent) {
                 console.log('[JanManager] No send button found, trying Enter key');
                 try {
@@ -390,29 +427,60 @@ class AiWebViewInteractor {
                 } catch(e) {}
             }
 
-            console.log('[JanManager] Send attempted (sent=' + sent + '), starting response polling');
+            /* 送信後に入力欄をクリア（次回ループへの混入防止） */
+            setTimeout(function() {
+                var inputEl2 = findInput();
+                if (inputEl2) clearInput(inputEl2);
+            }, 1500);
 
-            /* ==== Phase 4: レスポンス安定判定 ==== */
-            var lastLen = 0;
+            console.log('[JanManager] Send attempted (sent=' + sent + '), waiting for new response element...');
+
+            /* ==== Phase 4: 新しいレスポンス要素の出現を待つ ==== */
+            var waitNewTries = 0;
+            var waitNewMax   = 60;  /* 最大30秒待機 */
+
+            var tWait = setInterval(function() {
+                waitNewTries++;
+                if (waitNewTries > waitNewMax) {
+                    clearInterval(tWait);
+                    console.error('[JanManager] New response element did not appear');
+                    if (typeof JanBridge !== 'undefined') JanBridge.onError('新しいレスポンス要素が出現しませんでした');
+                    return;
+                }
+                var currentCount = countCurrentResponses();
+                if (currentCount > baseResponseCount) {
+                    clearInterval(tWait);
+                    console.log('[JanManager] New response element appeared (count: ' +
+                        baseResponseCount + ' -> ' + currentCount + '). Start polling.');
+                    /* ==== Phase 5: レスポンス安定判定（新しい要素のみ対象） ==== */
+                    doWaitStable(currentCount - 1);
+                }
+            }, 500);
+        }
+
+        /* ==== Phase 5: レスポンス安定判定 ==== */
+        function doWaitStable(targetIndex) {
+            var lastLen  = 0;
             var stableCnt = 0;
             var pollCount = 0;
-            var maxPoll = 160;
+            var maxPoll  = 160;  /* 最大80秒 */
 
             var t = setInterval(function() {
                 pollCount++;
                 if (pollCount > maxPoll) {
+                    clearInterval(t);
                     console.error('[JanManager] Response polling timeout');
                     if (typeof JanBridge !== 'undefined') JanBridge.onError('レスポンスタイムアウト');
-                    clearInterval(t);
                     return;
                 }
 
                 for (var i = 0; i < responseSelectors.length; i++) {
                     try {
                         var els = document.querySelectorAll(responseSelectors[i]);
-                        if (els.length > 0) {
-                            var lastEl = els[els.length - 1];
-                            var text = (lastEl.innerText || lastEl.textContent || '').trim();
+                        /* targetIndex番目の要素を監視（送信後に追加された要素） */
+                        if (els.length > targetIndex) {
+                            var el  = els[targetIndex];
+                            var text = (el.innerText || el.textContent || '').trim();
                             var currentLen = text.length;
 
                             if (currentLen > 40 && currentLen === lastLen) {
@@ -438,21 +506,21 @@ class AiWebViewInteractor {
                 }
 
                 if (pollCount % 20 === 0) {
-                    console.log('[JanManager] Polling response... ' + pollCount + '/' + maxPoll + ', lastLen=' + lastLen);
+                    console.log('[JanManager] Polling... ' + pollCount + '/' + maxPoll +
+                        ', lastLen=' + lastLen + ', stableCnt=' + stableCnt);
                 }
             }, 500);
         }
 
         /* ==== 実行開始 ==== */
-        /* Bridge存在チェック */
         if (typeof JanBridge === 'undefined') {
-            console.error('[JanManager] JanBridge is NOT defined! addJavascriptInterface may have failed.');
+            console.error('[JanManager] JanBridge is NOT defined!');
         } else {
             console.log('[JanManager] JanBridge is available');
         }
 
         waitForInput();
-        
+
     } catch(err) {
         console.error('[JanManager] CRITICAL JS ERROR:', err);
         if (typeof JanBridge !== 'undefined') {
