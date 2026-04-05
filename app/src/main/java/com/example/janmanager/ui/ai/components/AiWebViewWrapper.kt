@@ -25,12 +25,6 @@ fun AiWebViewWrapper(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT
                 )
 
-                webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView?, url: String?) {
-                        super.onPageFinished(view, url)
-                    }
-                }
-
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
@@ -41,7 +35,7 @@ fun AiWebViewWrapper(
                     builtInZoomControls = true
                     displayZoomControls = false
 
-                    // ★ GikobunAI方式: 完全なブラウザUAに変更（"; wv" 除去だけでなく全体を上書き）
+                    // GikobunAIと同一のブラウザUA
                     userAgentString =
                         "Mozilla/5.0 (Linux; Android 13; Pixel 7) " +
                         "AppleWebKit/537.36 (KHTML, like Gecko) " +
@@ -58,6 +52,16 @@ fun AiWebViewWrapper(
                 cookieManager.setAcceptCookie(true)
                 cookieManager.setAcceptThirdPartyCookies(this, true)
 
+                webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        // SPA遷移後もBridgeが確実に使えるようにする
+                        // （通常は不要だが保険として）
+                    }
+                }
+
+                // ★ onWebViewCreated を loadUrl の前に呼ぶ
+                // ★ これにより addJavascriptInterface が loadUrl より先に実行される
                 onWebViewCreated(this)
                 loadUrl(url)
             }
