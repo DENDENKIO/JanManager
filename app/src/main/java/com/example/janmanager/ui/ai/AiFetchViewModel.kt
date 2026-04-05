@@ -60,7 +60,6 @@ class AiFetchViewModel @Inject constructor(
     private var currentProduct: ProductMaster? = null
 
     init {
-        // 待機中のみ Flow を監視してUIリストを更新する
         startFlowObserver()
         viewModelScope.launch {
             val aiSelection = settingsDataStore.aiSelectionFlow.first()
@@ -101,10 +100,6 @@ class AiFetchViewModel @Inject constructor(
         }
     }
 
-    /**
-     * DBの未取得商品リストのFlow監視を開始する。
-     * 実行中はこの監視を停止することで、DB保存によるリスト縮小がインデックスに影響しない。
-     */
     private fun startFlowObserver() {
         flowObserveJob?.cancel()
         flowObserveJob = viewModelScope.launch {
@@ -114,10 +109,6 @@ class AiFetchViewModel @Inject constructor(
         }
     }
 
-    /**
-     * DBの未取得商品リストのFlow監視を停止する。
-     * 実行中に呼び出すことで、保存をしてもunfetchedProductsが再発火されない。
-     */
     private fun stopFlowObserver() {
         flowObserveJob?.cancel()
         flowObserveJob = null
@@ -131,13 +122,14 @@ class AiFetchViewModel @Inject constructor(
         if (_uiState.value.unfetchedProducts.isEmpty()) return
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
-            // 実行前に Flow 監視を停止する
-            // → これ以降 DB保存をしても unfetchedProducts が再発火されずインデックスがズれない
             stopFlowObserver()
 
-            // 現在のリストを実行山として固定
             val productsToFetch = _uiState.value.unfetchedProducts.toList()
             _uiState.value = _uiState.value.copy(isRunning = true, currentIndex = 0)
+
+            var successCount  = 0
+            var notFoundCount = 0
+            var errorCount    = 0
 
             for (index in productsToFetch.indices) {
                 if (!_uiState.value.isRunning) break
@@ -150,20 +142,38 @@ class AiFetchViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(currentStatus = status)
                 }
 
-                if (result.success && result.data != null) {
-                    _uiState.value = _uiState.value.copy(
-                        currentStatus = "取得成功: ${product.janCode} → 保存中..."
-                    )
-                    saveResult(product, result.data)
-                    _uiState.value = _uiState.value.copy(
-                        currentStatus = "保存完了: ${product.janCode}"
-                    )
-                    delay(2000)
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        currentStatus = "エラー: ${product.janCode} - ${result.errorMessage ?: "不明"}"
-                    )
-                    delay(3000)
+                when {
+                    // 商品が見つからなかった（not_found = true）
+                    result.success && result.data?.not_found == true -> {
+                        // infoFetched = true にマークして未取得リストから除去
+                        // → 同じJANが永遠にリストに残り続ける問題を防ぐ
+                        markAsNotFound(product)
+                        notFoundCount++
+                        _uiState.value = _uiState.value.copy(
+                            currentStatus = "スキップ（商品情報なし）: ${product.janCode}"
+                        )
+                        delay(1000)
+                    }
+                    // 取得成功
+                    result.success && result.data != null -> {
+                        _uiState.value = _uiState.value.copy(
+                            currentStatus = "取得成功: ${product.janCode} → 保存中..."
+                        )
+                        saveResult(product, result.data)
+                        successCount++
+                        _uiState.value = _uiState.value.copy(
+                            currentStatus = "保存完了: ${product.janCode}"
+                        )
+                        delay(2000)
+                    }
+                    // エラー
+                    else -> {
+                        errorCount++
+                        _uiState.value = _uiState.value.copy(
+                            currentStatus = "エラー: ${product.janCode} - ${result.errorMessage ?: "不明"}"
+                        )
+                        delay(3000)
+                    }
                 }
             }
 
@@ -171,9 +181,8 @@ class AiFetchViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 isRunning = false,
                 currentIndex = -1,
-                currentStatus = "完了（${productsToFetch.size}件処理）"
+                currentStatus = "完了 — 成功:${successCount}件 / 情報なし:${notFoundCount}件 / エラー:${errorCount}件"
             )
-            // 完了後に Flow 監視を再開してUIリストを最新化
             startFlowObserver()
         }
     }
@@ -186,23 +195,39 @@ class AiFetchViewModel @Inject constructor(
             currentIndex = -1,
             currentStatus = "停止中"
         )
-        // 停止後に Flow 監視を再開してUIリストを最新化
         startFlowObserver()
     }
 
-    private suspend fun saveResult(product: ProductMaster, result: AiResponseData) {
-        if (result.not_found) return
-
+    /**
+     * not_found 商品を infoFetched=true にマークする。
+     * 商品情報は空のままで、未取得リストからは除去される。
+     * infoSource = AI_NOT_FOUND で記録する。
+     */
+    private suspend fun markAsNotFound(product: ProductMaster) {
         val updatedProduct = product.copy(
-            makerName = result.maker_name,
-            makerNameKana = result.maker_name_kana,
-            productName = result.product_name,
-            productNameKana = result.product_name_kana,
-            spec = result.spec,
             infoFetched = true,
-            infoSource = if (_uiState.value.aiUrl.orEmpty().contains("gemini"))
+            infoSource  = if (_uiState.value.aiUrl.orEmpty().contains("gemini"))
                 InfoSource.AI_GEMINI else InfoSource.AI_PERPLEXITY,
             updatedAt = System.currentTimeMillis()
+        )
+        repository.updateProduct(updatedProduct)
+    }
+
+    /**
+     * 商品情報が見つかった場合の保存。
+     * not_found=true の場合は markAsNotFound で処理するためここでは呢んこ。
+     */
+    private suspend fun saveResult(product: ProductMaster, result: AiResponseData) {
+        val updatedProduct = product.copy(
+            makerName        = result.maker_name,
+            makerNameKana    = result.maker_name_kana,
+            productName      = result.product_name,
+            productNameKana  = result.product_name_kana,
+            spec             = result.spec,
+            infoFetched      = true,
+            infoSource       = if (_uiState.value.aiUrl.orEmpty().contains("gemini"))
+                InfoSource.AI_GEMINI else InfoSource.AI_PERPLEXITY,
+            updatedAt        = System.currentTimeMillis()
         )
         repository.updateProduct(updatedProduct)
         if (result.maker_name.isNotEmpty()) {
@@ -254,16 +279,16 @@ class AiFetchViewModel @Inject constructor(
 
             if (parseResult is AiParseResult.Success) {
                 _uiState.value = _uiState.value.copy(
-                    lastResult = parseResult.data,
-                    showPreview = true,
+                    lastResult    = parseResult.data,
+                    showPreview   = true,
                     currentStatus = "手動取得成功"
                 )
             } else {
                 val errorMsg = when (parseResult) {
-                    is AiParseResult.JanMismatch -> "JAN不一致: ${parseResult.actual}"
+                    is AiParseResult.JanMismatch  -> "JAN不一致: ${parseResult.actual}"
                     is AiParseResult.InvalidFormat -> "形式エラー"
-                    is AiParseResult.NotFound -> "見つかりません"
-                    else -> "手動取得失敗"
+                    is AiParseResult.NotFound      -> "見つかりません"
+                    else                           -> "手動取得失敗"
                 }
                 _uiState.value = _uiState.value.copy(currentStatus = errorMsg)
             }
