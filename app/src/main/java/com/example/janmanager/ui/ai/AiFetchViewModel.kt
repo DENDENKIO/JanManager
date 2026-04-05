@@ -52,11 +52,6 @@ class AiFetchViewModel @Inject constructor(
     private val interactor = AiWebViewInteractor()
     private var targetBaseUrl: String = "gemini.google.com"
 
-    /**
-     * 現在ループで処理中の商品。
-     * DB保存後に unfetchedProducts Flow が再発火しても
-     * この変数が指す商品は変わらないためJAN不一致が発生しない。
-     */
     private var currentProduct: ProductMaster? = null
 
     init {
@@ -143,16 +138,14 @@ class AiFetchViewModel @Inject constructor(
                 }
 
                 when {
-                    // 商品が見つからなかった（not_found = true）
+                    // 商品情報なし（not_found = true）→ 即座にスキップ、delayなし
                     result.success && result.data?.not_found == true -> {
-                        // infoFetched = true にマークして未取得リストから除去
-                        // → 同じJANが永遠にリストに残り続ける問題を防ぐ
                         markAsNotFound(product)
                         notFoundCount++
                         _uiState.value = _uiState.value.copy(
                             currentStatus = "スキップ（商品情報なし）: ${product.janCode}"
                         )
-                        delay(1000)
+                        // delay なし → 即座次へ
                     }
                     // 取得成功
                     result.success && result.data != null -> {
@@ -199,9 +192,8 @@ class AiFetchViewModel @Inject constructor(
     }
 
     /**
-     * not_found 商品を infoFetched=true にマークする。
-     * 商品情報は空のままで、未取得リストからは除去される。
-     * infoSource = AI_NOT_FOUND で記録する。
+     * not_found 商品を infoFetched=true にマークして未取得リストから除去する。
+     * 商品情報は空のみままで、後から手動入力も可能。
      */
     private suspend fun markAsNotFound(product: ProductMaster) {
         val updatedProduct = product.copy(
@@ -213,10 +205,6 @@ class AiFetchViewModel @Inject constructor(
         repository.updateProduct(updatedProduct)
     }
 
-    /**
-     * 商品情報が見つかった場合の保存。
-     * not_found=true の場合は markAsNotFound で処理するためここでは呢んこ。
-     */
     private suspend fun saveResult(product: ProductMaster, result: AiResponseData) {
         val updatedProduct = product.copy(
             makerName        = result.maker_name,
@@ -285,7 +273,7 @@ class AiFetchViewModel @Inject constructor(
                 )
             } else {
                 val errorMsg = when (parseResult) {
-                    is AiParseResult.JanMismatch  -> "JAN不一致: ${parseResult.actual}"
+                    is AiParseResult.JanMismatch   -> "JAN不一致: ${parseResult.actual}"
                     is AiParseResult.InvalidFormat -> "形式エラー"
                     is AiParseResult.NotFound      -> "見つかりません"
                     else                           -> "手動取得失敗"
