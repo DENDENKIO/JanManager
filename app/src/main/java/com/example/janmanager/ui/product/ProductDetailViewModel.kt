@@ -52,6 +52,22 @@ class ProductDetailViewModel @Inject constructor(
         }
     }
 
+    fun restoreProductStatus() {
+        viewModelScope.launch {
+            val current = _product.value ?: return@launch
+            repository.setProductActive(current.janCode)
+            loadProduct(current.janCode)
+        }
+    }
+
+    fun unlinkRenewal() {
+        viewModelScope.launch {
+            val current = _product.value ?: return@launch
+            repository.unlinkRenewal(current.janCode)
+            loadProduct(current.janCode)
+        }
+    }
+
     fun discontinueProduct() {
         viewModelScope.launch {
             val current = _product.value ?: return@launch

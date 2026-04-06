@@ -177,18 +177,24 @@ fun ProductDetailScreen(
                 // Renewal Management
                 Text("リニューアル・終売管理", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 if (p.renewedFromJan != null) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("更新元: ${p.renewedFromJan}", style = MaterialTheme.typography.bodyMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text("更新元: ${p.renewedFromJan}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                         TextButton(onClick = { onNavigateToDetail(p.renewedFromJan!!) }) {
                             Text("→ 詳細")
+                        }
+                        IconButton(onClick = { viewModel.unlinkRenewal() }) {
+                            Icon(Icons.Default.DeleteOutline, contentDescription = "解除", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
                 if (p.renewedToJan != null) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("更新先: ${p.renewedToJan}", style = MaterialTheme.typography.bodyMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text("更新先: ${p.renewedToJan}", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                         TextButton(onClick = { onNavigateToDetail(p.renewedToJan!!) }) {
                             Text("→ 詳細")
+                        }
+                        IconButton(onClick = { viewModel.unlinkRenewal() }) {
+                            Icon(Icons.Default.DeleteOutline, contentDescription = "解除", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -211,12 +217,30 @@ fun ProductDetailScreen(
                     }
                 )
 
-                Button(
-                    onClick = { viewModel.discontinueProduct() },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("この商品を終売にする")
+                if (p.status == ProductStatus.ACTIVE) {
+                    Button(
+                        onClick = { viewModel.discontinueProduct() },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("この商品を終売にする")
+                    }
+                } else if (p.status == ProductStatus.DISCONTINUED) {
+                    Button(
+                        onClick = { viewModel.restoreProductStatus() },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("終売を取り消す（販売中に戻す）")
+                    }
+                } else if (p.status == ProductStatus.RENEWED) {
+                    Button(
+                        onClick = { viewModel.unlinkRenewal() },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("リニューアル紐づけを解除して販売中に戻す")
+                    }
                 }
             }
         }

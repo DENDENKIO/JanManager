@@ -49,26 +49,32 @@ class GroupScanViewModel @Inject constructor(
             return
         }
 
-        val janCode = barcode // Assume it's already normalized or handled by the fragment/screen
-        
         viewModelScope.launch {
-            val product = productRepository.getProductByJan(janCode)
+            val normalizedInput = com.example.janmanager.util.Normalizer.toHalfWidth(barcode).trim()
+            if (normalizedInput.isEmpty()) return@launch
+
+            var product = productRepository.getProductByJan(normalizedInput)
             
             if (product == null) {
-                // Register as basic product first (Phase 2 requirement usually)
+                val prefix = JanCodeUtil.extractMakerPrefix(normalizedInput)
+                val makerCache = productRepository.getMakerByPrefix(prefix)
+
                 val newProduct = ProductMaster(
-                    janCode = janCode,
-                    makerJanPrefix = JanCodeUtil.extractMakerPrefix(janCode),
-                    makerName = "",
-                    makerNameKana = "",
+                    janCode = normalizedInput,
+                    makerJanPrefix = prefix,
+                    makerName = makerCache?.makerName ?: "",
+                    makerNameKana = makerCache?.makerNameKana ?: "",
                     productName = "未登録商品",
                     productNameKana = "",
-                    spec = ""
+                    spec = "",
+                    infoFetched = false
                 )
                 val id = productRepository.insertProduct(newProduct)
-                addToGroup(currentGroup.id, id, janCode, "未登録商品", isNew = true)
-            } else {
-                addToGroup(currentGroup.id, product.id, janCode, product.productName, isNew = false)
+                product = newProduct.copy(id = id)
+            }
+            
+            product?.let { 
+                addToGroup(currentGroup.id, it.id, normalizedInput, it.productName, isNew = !it.infoFetched)
             }
         }
     }

@@ -8,13 +8,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -41,17 +38,14 @@ fun OrderScanScreen(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     var barcodeInput by remember { mutableStateOf("") }
-    var isManualInput by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isManualInput) {
-        if (!isManualInput) {
-            while (true) {
-                delay(1000)
-                try {
-                    focusRequester.requestFocus()
-                    keyboardController?.hide()
-                } catch (e: Exception) {}
-            }
+    // Constant focus for Bluetooth HID scanner
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(500)
+            try {
+                focusRequester.requestFocus()
+            } catch (e: Exception) {}
         }
     }
 
@@ -93,15 +87,6 @@ fun OrderScanScreen(
             TopAppBar(
                 title = { Text("発注スキャン") },
                 actions = {
-                    IconButton(onClick = { 
-                        isManualInput = !isManualInput 
-                        barcodeInput = ""
-                    }) {
-                        Icon(
-                            if (isManualInput) Icons.Default.QrCodeScanner else Icons.Default.Keyboard,
-                            contentDescription = "入力モード切替"
-                        )
-                    }
                     Button(onClick = { 
                         viewModel.completeSession() 
                         onComplete()
@@ -122,55 +107,39 @@ fun OrderScanScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Input Area
+            // Unified Input Area
             Box(modifier = Modifier.fillMaxWidth()) {
-                if (isManualInput) {
-                    OutlinedTextField(
-                        value = barcodeInput,
-                        onValueChange = { if (it.all { c -> c.isDigit() }) barcodeInput = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onKeyEvent {
-                                if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER && it.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                                    if (barcodeInput.isNotEmpty()) {
-                                        viewModel.processBarcode(barcodeInput)
-                                        barcodeInput = ""
-                                    }
-                                    true
-                                } else {
-                                    false
+                OutlinedTextField(
+                    value = barcodeInput,
+                    onValueChange = { 
+                        val normalized = com.example.janmanager.util.Normalizer.toHalfWidth(it)
+                        if (normalized.all { c -> c.isDigit() }) barcodeInput = normalized 
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                        .onKeyEvent {
+                            if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER && it.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                                if (barcodeInput.isNotEmpty()) {
+                                    viewModel.processBarcode(barcodeInput)
+                                    barcodeInput = ""
                                 }
-                            },
-                        label = { Text("JANコードを手入力") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = {
-                            if (barcodeInput.isNotEmpty()) {
-                                viewModel.processBarcode(barcodeInput)
-                                barcodeInput = ""
+                                true
+                            } else {
+                                false
                             }
-                        }),
-                        singleLine = true
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = barcodeInput,
-                        onValueChange = { barcodeInput = it },
-                        modifier = Modifier
-                            .size(1.dp)
-                            .alpha(0f)
-                            .focusRequester(focusRequester)
-                            .onKeyEvent {
-                                if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER && it.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                                    if (barcodeInput.isNotEmpty()) {
-                                        viewModel.processBarcode(barcodeInput)
-                                        barcodeInput = ""
-                                    }
-                                    true
-                                } else { false }
-                            }
-                    )
-                    Text("Bluetoothスキャナー準備完了", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                }
+                        },
+                    label = { Text("JANコード") },
+                    placeholder = { Text("スキャンまたは手入力") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = {
+                        if (barcodeInput.isNotEmpty()) {
+                            viewModel.processBarcode(barcodeInput)
+                            barcodeInput = ""
+                        }
+                    }),
+                    singleLine = true
+                )
             }
 
             // Session Info

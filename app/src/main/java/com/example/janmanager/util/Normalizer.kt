@@ -9,6 +9,30 @@ object Normalizer {
         return text.trim().replace(Regex("\\s+"), " ")
     }
     
+    
+    /**
+     * 全角の数字やハイフン等を半角に変換する
+     */
+    fun toHalfWidth(text: String?): String {
+        if (text == null) return ""
+        val sb = StringBuilder()
+        for (c in text) {
+            when {
+                // 全角数字 (０-９) -> 半角数字 (0-9)
+                c in '\uFF10'..'\uFF19' -> sb.append(c - 0xFEE0)
+                // 全角アルファベット大文字 (Ａ-Ｚ) -> 半角アルファベット大文字 (A-Z)
+                c in '\uFF21'..'\uFF3A' -> sb.append(c - 0xFEE0)
+                // 全角アルファベット小文字 (ａ-ｚ) -> 半角アルファベット小文字 (a-z)
+                c in '\uFF41'..'\uFF5A' -> sb.append(c - 0xFEE0)
+                // 全角スペース -> 半角スペース
+                c == '\u3000' -> sb.append(' ')
+                // その他はそのまま（必要に応じて追加）
+                else -> sb.append(c)
+            }
+        }
+        return sb.toString()
+    }
+
     /**
      * 文字列をひらがなのみにする（簡易実装: カタカナをひらがなに変換し、それ以外を除去などの処理）
      */

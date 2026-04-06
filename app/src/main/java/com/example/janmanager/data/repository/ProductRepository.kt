@@ -60,6 +60,12 @@ class ProductRepository @Inject constructor(
         }
     }
 
+    suspend fun setProductActive(janCode: String) {
+        productDao.getProductByJan(janCode)?.let {
+            productDao.update(it.copy(status = ProductStatus.ACTIVE, updatedAt = System.currentTimeMillis()))
+        }
+    }
+
     suspend fun linkRenewal(oldJan: String, newJan: String) {
         val oldProduct = productDao.getProductByJan(oldJan)
         val newProduct = productDao.getProductByJan(newJan)
@@ -69,6 +75,31 @@ class ProductRepository @Inject constructor(
         }
         if (newProduct != null) {
             productDao.update(newProduct.copy(renewedFromJan = oldJan, updatedAt = System.currentTimeMillis()))
+        }
+    }
+
+    suspend fun unlinkRenewal(janCode: String) {
+        val product = productDao.getProductByJan(janCode) ?: return
+        
+        // 1. 自分自身の紐づけを解除し ACTIVE に戻す
+        val updatedProduct = product.copy(
+            renewedFromJan = null,
+            renewedToJan = null,
+            status = ProductStatus.ACTIVE,
+            updatedAt = System.currentTimeMillis()
+        )
+        productDao.update(updatedProduct)
+
+        // 2. 相手方（更新元/更新先）の紐づけも解除する
+        product.renewedFromJan?.let { fromJan ->
+            productDao.getProductByJan(fromJan)?.let { fromProduct ->
+                productDao.update(fromProduct.copy(renewedToJan = null, status = ProductStatus.ACTIVE, updatedAt = System.currentTimeMillis()))
+            }
+        }
+        product.renewedToJan?.let { toJan ->
+            productDao.getProductByJan(toJan)?.let { toProduct ->
+                productDao.update(toProduct.copy(renewedFromJan = null, updatedAt = System.currentTimeMillis()))
+            }
         }
     }
 

@@ -4,14 +4,9 @@ import android.view.KeyEvent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.onKeyEvent
@@ -37,38 +32,19 @@ fun ScanScreen(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     var inputBuffer by remember { mutableStateOf("") }
-    var isManualInput by remember { mutableStateOf(false) }
 
-    // Bluetooth HID input maintenance
-    LaunchedEffect(isManualInput, currentTab) {
-        if (!isManualInput) {
-            while (true) {
-                delay(1000)
-                try {
-                    focusRequester.requestFocus()
-                    keyboardController?.hide()
-                } catch (e: Exception) {
-                    // Ignore focus errors
-                }
-            }
-        }
+    // Ensure focus for scanner (always focused if possible, but let keyboard show normally)
+    LaunchedEffect(currentTab) {
+        delay(300)
+        try {
+            focusRequester.requestFocus()
+        } catch (e: Exception) {}
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("スキャン") },
-                actions = {
-                    IconButton(onClick = { 
-                        isManualInput = !isManualInput 
-                        inputBuffer = ""
-                    }) {
-                        Icon(
-                            if (isManualInput) Icons.Default.QrCodeScanner else Icons.Default.Keyboard,
-                            contentDescription = "入力モード切替"
-                        )
-                    }
-                }
+                title = { Text("スキャン") }
             )
         }
     ) { padding ->
@@ -81,7 +57,10 @@ fun ScanScreen(
                 tabs.forEachIndexed { index, tab ->
                     Tab(
                         selected = currentTab.ordinal == index,
-                        onClick = { viewModel.setTab(tab) },
+                        onClick = { 
+                            viewModel.setTab(tab)
+                            inputBuffer = "" // Reset buffer on tab change
+                        },
                         text = {
                             Text(
                                 when (tab) {
@@ -95,73 +74,48 @@ fun ScanScreen(
                 }
             }
 
-            // Input Area
+            // Input Area (Unified Manual/Scanner Input)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp)
             ) {
-                if (isManualInput) {
-                    OutlinedTextField(
-                        value = inputBuffer,
-                        onValueChange = { if (it.all { char -> char.isDigit() }) inputBuffer = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onKeyEvent {
-                                if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER && it.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                                    if (inputBuffer.isNotEmpty()) {
-                                        viewModel.processBarcode(inputBuffer)
-                                        inputBuffer = ""
-                                    }
-                                    true
-                                } else {
-                                    false
-                                }
-                            },
-                        label = { Text("JANコードを手入力") },
-                        placeholder = { Text("13桁または8桁") },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Send
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onSend = {
+                OutlinedTextField(
+                    value = inputBuffer,
+                    onValueChange = { 
+                        val normalized = com.example.janmanager.util.Normalizer.toHalfWidth(it)
+                        if (normalized.all { char -> char.isDigit() }) inputBuffer = normalized 
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                        .onKeyEvent {
+                            if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER && it.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
                                 if (inputBuffer.isNotEmpty()) {
                                     viewModel.processBarcode(inputBuffer)
                                     inputBuffer = ""
                                 }
+                                true
+                            } else {
+                                false
                             }
-                        ),
-                        singleLine = true
-                    )
-                } else {
-                    // Hidden field for Bluetooth HID (Minimal size but not zero, and transparent)
-                    OutlinedTextField(
-                        value = inputBuffer,
-                        onValueChange = { inputBuffer = it },
-                        modifier = Modifier
-                            .size(1.dp)
-                            .alpha(0f)
-                            .focusRequester(focusRequester)
-                            .onKeyEvent { event ->
-                                if (event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER && event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                                    if (inputBuffer.isNotEmpty()) {
-                                        viewModel.processBarcode(inputBuffer.trim())
-                                        inputBuffer = ""
-                                    }
-                                    true
-                                } else {
-                                    false
-                                }
+                        },
+                    label = { Text("JANコード") },
+                    placeholder = { Text("スキャンまたは手入力") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Send
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (inputBuffer.isNotEmpty()) {
+                                viewModel.processBarcode(inputBuffer)
+                                inputBuffer = ""
                             }
-                    )
-                    Text(
-                        "Bluetoothスキャナー準備完了",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
+                        }
+                    ),
+                    singleLine = true
+                )
             }
 
             // Content

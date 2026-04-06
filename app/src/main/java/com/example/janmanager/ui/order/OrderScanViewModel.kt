@@ -88,10 +88,11 @@ class OrderScanViewModel @Inject constructor(
         }
         
         viewModelScope.launch {
-            val normalizedBarcode = barcode.trim()
-            
+            val normalizedInput = com.example.janmanager.util.Normalizer.toHalfWidth(barcode).trim()
+            if (normalizedInput.isEmpty()) return@launch
+
             // ITF 14-digit check
-            val type = JanCodeUtil.detectCodeType(normalizedBarcode)
+            val type = JanCodeUtil.detectCodeType(normalizedInput)
             if (type == BarcodeType.ITF14 && !isItfEnabled.value) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "ITFコードの読み取りは無効に設定されています"
@@ -99,12 +100,40 @@ class OrderScanViewModel @Inject constructor(
                 return@launch
             }
 
-            val product = productRepository.getProductByJan(normalizedBarcode)
-            val isDuplicate = scanRepository.hasDuplicateJan(session.id, normalizedBarcode)
+            // 1. 商品検索 (優先順位: 商品マスタ直接 -> 包装単位 -> 新規仮作成)
+            var product = productRepository.getProductByJan(normalizedInput)
+            if (product == null) {
+                val packUnit = productRepository.getPackageUnitByBarcode(normalizedInput)
+                if (packUnit != null) {
+                    product = productRepository.getProductById(packUnit.productId)
+                }
+            }
 
+            // 見つからない場合は新商品として仮登録
+            if (product == null) {
+                val prefix = JanCodeUtil.extractMakerPrefix(normalizedInput)
+                val makerCache = productRepository.getMakerByPrefix(prefix)
+                
+                val stubProduct = ProductMaster(
+                    janCode = normalizedInput,
+                    makerJanPrefix = prefix,
+                    makerName = makerCache?.makerName ?: "",
+                    makerNameKana = makerCache?.makerNameKana ?: "",
+                    productName = "（未登録商品）",
+                    productNameKana = "",
+                    spec = "",
+                    infoFetched = false
+                )
+                val newId = productRepository.insertProduct(stubProduct)
+                product = stubProduct.copy(id = newId)
+            }
+
+            // 2. セッション内の重複チェック
+            val isDuplicate = scanRepository.hasDuplicateJan(session.id, normalizedInput)
             if (isDuplicate) {
                 _uiState.value = _uiState.value.copy(
-                    lastScannedJan = normalizedBarcode,
+                    lastScannedJan = normalizedInput,
+                    lastProductName = product.productName,
                     isDuplicate = true,
                     isDiscontinued = false,
                     errorMessage = ""
@@ -112,44 +141,35 @@ class OrderScanViewModel @Inject constructor(
                 return@launch
             }
 
-            if (product != null) {
-                val isDiscontinued = product.status == ProductStatus.DISCONTINUED
-                
-                if (isDiscontinued) {
-                    // 終売品の場合は保留にする
-                    _uiState.value = _uiState.value.copy(
-                        lastScannedJan = normalizedBarcode,
-                        lastProductName = product.productName,
-                        isDuplicate = false,
-                        isDiscontinued = true,
-                        pendingDiscontinuedProduct = product,
-                        errorMessage = ""
-                    )
-                } else {
-                    // 通常商品はそのまま追加
-                    scanRepository.addItemToSession(session.id, product.id, normalizedBarcode)
-                    
-                    if (scanSoundEnabled.value) {
-                        SoundHelper.playSuccessBeep()
-                    }
-
-                    _uiState.value = _uiState.value.copy(
-                        lastScannedJan = normalizedBarcode,
-                        lastProductName = product.productName,
-                        isDuplicate = false,
-                        isDiscontinued = false,
-                        errorMessage = ""
-                    )
-                }
-            } else {
+            // 3. 終売品警告または直接追加
+            val isDiscontinued = product.status == ProductStatus.DISCONTINUED
+            if (isDiscontinued) {
                 _uiState.value = _uiState.value.copy(
-                    lastScannedJan = normalizedBarcode,
+                    lastScannedJan = normalizedInput,
+                    lastProductName = product.productName,
                     isDuplicate = false,
-                    isDiscontinued = false,
-                    errorMessage = "商品未登録: $normalizedBarcode"
+                    isDiscontinued = true,
+                    pendingDiscontinuedProduct = product,
+                    errorMessage = ""
                 )
+            } else {
+                saveToSessionInternal(session.id, product, normalizedInput)
             }
         }
+    }
+
+    private suspend fun saveToSessionInternal(sessionId: Long, product: ProductMaster, barcode: String) {
+        scanRepository.addItemToSession(sessionId, product.id, barcode)
+        if (scanSoundEnabled.value) {
+            SoundHelper.playSuccessBeep()
+        }
+        _uiState.value = _uiState.value.copy(
+            lastScannedJan = barcode,
+            lastProductName = product.productName,
+            isDuplicate = false,
+            isDiscontinued = false,
+            errorMessage = ""
+        )
     }
 
     fun confirmDiscontinued() {
@@ -157,12 +177,7 @@ class OrderScanViewModel @Inject constructor(
         val product = _uiState.value.pendingDiscontinuedProduct ?: return
         
         viewModelScope.launch {
-            scanRepository.addItemToSession(session.id, product.id, product.janCode)
-            
-            if (scanSoundEnabled.value) {
-                SoundHelper.playSuccessBeep()
-            }
-
+            saveToSessionInternal(session.id, product, product.janCode)
             _uiState.value = _uiState.value.copy(
                 pendingDiscontinuedProduct = null,
                 isDiscontinued = false

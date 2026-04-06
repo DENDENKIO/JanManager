@@ -157,7 +157,8 @@ class ScanViewModel @Inject constructor(
         _currentTab.value = tab
     }
     fun processBarcode(barcode: String) {
-        val type = JanCodeUtil.detectCodeType(barcode)
+        val normalizedInput = com.example.janmanager.util.Normalizer.toHalfWidth(barcode).trim()
+        val type = JanCodeUtil.detectCodeType(normalizedInput)
         
         // ITF Control
         if (!isItfEnabled.value && type == BarcodeType.ITF14) {
@@ -165,7 +166,7 @@ class ScanViewModel @Inject constructor(
         }
 
         // Convert ITF to JAN if necessary or keep it based on modes
-        val normalizedBarcode = if (type == BarcodeType.ITF14) JanCodeUtil.itfToJan(barcode) else barcode
+        val normalizedBarcode = if (type == BarcodeType.ITF14) JanCodeUtil.itfToJan(normalizedInput) else normalizedInput
 
         if (scanSoundEnabled.value) {
             SoundHelper.playSuccessBeep()
