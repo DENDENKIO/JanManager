@@ -69,8 +69,9 @@ fun ProductListScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { 
-                    searchQuery = it
-                    viewModel.search(it)
+                    val normalized = com.example.janmanager.util.Normalizer.toHalfWidth(it).trim()
+                    searchQuery = normalized
+                    viewModel.search(normalized)
                 },
                 modifier = Modifier
                     .fillMaxWidth()

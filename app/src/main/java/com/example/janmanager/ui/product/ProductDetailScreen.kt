@@ -1,7 +1,9 @@
 package com.example.janmanager.ui.product
 
+import android.view.KeyEvent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -16,7 +18,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -202,9 +206,28 @@ fun ProductDetailScreen(
                 var linkJan by remember { mutableStateOf("") }
                 OutlinedTextField(
                     value = linkJan, 
-                    onValueChange = { linkJan = it }, 
+                    onValueChange = { 
+                        linkJan = com.example.janmanager.util.Normalizer.toHalfWidth(it).trim()
+                    }, 
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onKeyEvent {
+                            if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER && it.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                                if (linkJan.isNotEmpty()) {
+                                    viewModel.linkRenewalTarget(linkJan)
+                                    linkJan = ""
+                                }
+                                true
+                            } else false
+                        },
                     label = { Text("新JANを紐づけ") }, 
-                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = {
+                        if (linkJan.isNotEmpty()) {
+                            viewModel.linkRenewalTarget(linkJan)
+                            linkJan = ""
+                        }
+                    }),
                     trailingIcon = {
                         IconButton(onClick = { 
                             if (linkJan.isNotEmpty()) {
@@ -286,10 +309,6 @@ fun PackageUnitRow(pack: PackageUnit, onDelete: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(pack.packageType.displayName, style = MaterialTheme.typography.labelMedium)
                 Text(pack.barcode, style = MaterialTheme.typography.bodyMedium)
-                if (pack.packageType != PackageType.PIECE) {
-                    Text("${pack.quantityPerUnit}入", style = MaterialTheme.typography.bodySmall,
-                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
             }
             var showConfirm by remember { mutableStateOf(false) }
             IconButton(onClick = { showConfirm = true }) {
@@ -318,7 +337,6 @@ fun PackageUnitRow(pack: PackageUnit, onDelete: () -> Unit) {
 @Composable
 fun NewPackageForm(onAdd: (String, PackageType, Int) -> Unit) {
     var newPackBarcode by remember { mutableStateOf("") }
-    var newPackQty by remember { mutableStateOf("") }
     var newPackType by remember { mutableStateOf(PackageType.CASE) }
 
     Card(
@@ -340,31 +358,38 @@ fun NewPackageForm(onAdd: (String, PackageType, Int) -> Unit) {
 
             OutlinedTextField(
                 value = newPackBarcode,
-                onValueChange = { newPackBarcode = it },
+                onValueChange = { 
+                    newPackBarcode = com.example.janmanager.util.Normalizer.toHalfWidth(it).trim()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onKeyEvent {
+                        if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER && it.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                            if (newPackBarcode.isNotEmpty()) {
+                                onAdd(newPackBarcode, newPackType, 1)
+                                newPackBarcode = ""
+                            }
+                            true
+                        } else false
+                    },
                 label = { Text("バーコード") },
-                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("スキャンまたは手入力") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (newPackBarcode.isNotEmpty()) {
+                        onAdd(newPackBarcode, newPackType, 1)
+                        newPackBarcode = ""
+                    }
+                }),
                 singleLine = true
             )
 
-            if (newPackType != PackageType.PIECE) {
-                OutlinedTextField(
-                    value = newPackQty,
-                    onValueChange = { newPackQty = it.filter { c -> c.isDigit() } },
-                    label = { Text("入数") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-            }
-
             Button(
                 onClick = {
-                    val qty = if (newPackType == PackageType.PIECE) 1 else newPackQty.toIntOrNull() ?: return@Button
-                    onAdd(newPackBarcode, newPackType, qty)
+                    onAdd(newPackBarcode, newPackType, 1) // Default quantity to 1 as it's no longer used
                     newPackBarcode = ""
-                    newPackQty = ""
                 },
-                enabled = newPackBarcode.isNotEmpty() && (newPackType == PackageType.PIECE || newPackQty.isNotEmpty()),
+                enabled = newPackBarcode.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("追加する")
