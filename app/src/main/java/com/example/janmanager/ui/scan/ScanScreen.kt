@@ -1,6 +1,7 @@
 package com.example.janmanager.ui.scan
 
 import android.view.KeyEvent
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -75,47 +76,53 @@ fun ScanScreen(
             }
 
             // Input Area (Unified Manual/Scanner Input)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
+            AnimatedVisibility(
+                visible = currentTab != ScanModeTab.CONTINUOUS,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
             ) {
-                OutlinedTextField(
-                    value = inputBuffer,
-                    onValueChange = { 
-                        val normalized = com.example.janmanager.util.Normalizer.toHalfWidth(it)
-                        if (normalized.all { char -> char.isDigit() }) inputBuffer = normalized 
-                    },
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .onKeyEvent {
-                            if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER && it.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                        .padding(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = inputBuffer,
+                        onValueChange = { 
+                            val normalized = com.example.janmanager.util.Normalizer.toHalfWidth(it)
+                            if (normalized.all { char -> char.isDigit() }) inputBuffer = normalized 
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester)
+                            .onKeyEvent {
+                                if (it.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER && it.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                                    if (inputBuffer.isNotEmpty()) {
+                                        viewModel.processBarcode(inputBuffer)
+                                        inputBuffer = ""
+                                    }
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
+                        label = { Text("JANコード") },
+                        placeholder = { Text("スキャンまたは手入力") },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Send
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onSend = {
                                 if (inputBuffer.isNotEmpty()) {
                                     viewModel.processBarcode(inputBuffer)
                                     inputBuffer = ""
                                 }
-                                true
-                            } else {
-                                false
                             }
-                        },
-                    label = { Text("JANコード") },
-                    placeholder = { Text("スキャンまたは手入力") },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Send
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onSend = {
-                            if (inputBuffer.isNotEmpty()) {
-                                viewModel.processBarcode(inputBuffer)
-                                inputBuffer = ""
-                            }
-                        }
-                    ),
-                    singleLine = true
-                )
+                        ),
+                        singleLine = true
+                    )
+                }
             }
 
             // Content

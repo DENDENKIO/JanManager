@@ -22,6 +22,17 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import com.example.janmanager.data.local.entity.OcrScanHistory
+import com.example.janmanager.data.repository.OcrScanHistoryRepository
+import com.example.janmanager.util.BarcodeImageGenerator
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.compose.ui.geometry.Offset
 import javax.inject.Inject
 
 enum class ScanModeTab {
@@ -38,10 +49,17 @@ enum class LinkageSlot {
     PIECE, PACK, CASE
 }
 
+data class DetectedText(
+    val text: String,
+    val boundingBox: android.graphics.Rect,
+    val anchoredProductName: String? = null
+)
+
 @HiltViewModel
 class ScanViewModel @Inject constructor(
     private val productRepository: ProductRepository,
     private val groupRepository: GroupRepository,
+    private val ocrScanHistoryRepository: OcrScanHistoryRepository,
     private val settingsDataStore: SettingsDataStore
 ) : ViewModel() {
 
@@ -55,6 +73,9 @@ class ScanViewModel @Inject constructor(
     val currentTab = _currentTab.asStateFlow()
 
     // Continuous Mode State
+    private val _isLiveMode = MutableStateFlow(false)
+    val isLiveMode = _isLiveMode.asStateFlow()
+    
     private val _recentlyScanned = MutableStateFlow<List<RecentScan>>(emptyList())
     val recentlyScanned = _recentlyScanned.asStateFlow()
 
@@ -83,6 +104,10 @@ class ScanViewModel @Inject constructor(
     // AI Fetch in Confirm Mode
     private val _showAiSheet = MutableStateFlow(false)
     val showAiSheet = _showAiSheet.asStateFlow()
+    
+    fun toggleLiveMode() {
+        _isLiveMode.value = !_isLiveMode.value
+    }
     
     private val _aiFetchStatus = MutableStateFlow("")
     val aiFetchStatus = _aiFetchStatus.asStateFlow()
@@ -114,6 +139,46 @@ class ScanViewModel @Inject constructor(
 
     private val _linkageCaseQty = MutableStateFlow(12)
     val linkageCaseQty = _linkageCaseQty.asStateFlow()
+
+    // OCR Mode State
+    private val _currentOcrJan = MutableStateFlow("")
+    val currentOcrJan = _currentOcrJan.asStateFlow()
+
+    private val _currentBarcodeImage = MutableStateFlow<Bitmap?>(null)
+    val currentBarcodeImage = _currentBarcodeImage.asStateFlow()
+
+    // Photo Mode States
+    private val _photoUri = MutableStateFlow<Uri?>(null)
+    val photoUri = _photoUri.asStateFlow()
+
+    private val _photoBitmap = MutableStateFlow<Bitmap?>(null)
+    val photoBitmap = _photoBitmap.asStateFlow()
+
+    private val _currentScale = MutableStateFlow(1f)
+    val currentScale = _currentScale.asStateFlow()
+
+    private val _currentOffset = MutableStateFlow(Offset.Zero)
+    val currentOffset = _currentOffset.asStateFlow()
+
+    private val _isTransformLocked = MutableStateFlow(false)
+    val isTransformLocked = _isTransformLocked.asStateFlow()
+
+    // null = 未取得, "" = 未登録, それ以外 = 商品名
+    private val _currentProductName = MutableStateFlow<String?>(null)
+    val currentProductName = _currentProductName.asStateFlow()
+
+    private val _ocrError = MutableStateFlow(false)
+    val ocrError = _ocrError.asStateFlow()
+
+    private val _detectedTextBlocks = MutableStateFlow<List<DetectedText>>(emptyList())
+    val detectedTextBlocks = _detectedTextBlocks.asStateFlow()
+
+    private val _isOcrProcessing = MutableStateFlow(false)
+    val isOcrProcessing = _isOcrProcessing.asStateFlow()
+
+    val ocrScanHistory: StateFlow<List<OcrScanHistory>> = ocrScanHistoryRepository
+        .getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         viewModelScope.launch {
@@ -367,6 +432,237 @@ class ScanViewModel @Inject constructor(
             
             _confirmProduct.value = product
             _showAiSheet.value = false
+        }
+    }
+
+    // Photo Mode Functions
+    fun setPhotoBitmap(bitmap: Bitmap?) {
+        _photoBitmap.value = bitmap
+        if (bitmap != null) {
+            analyzeFullImage(bitmap)
+        }
+    }
+
+    fun loadPhoto(uri: Uri) {
+        _photoUri.value = uri
+    }
+
+    fun toggleTransformLock() {
+        _isTransformLocked.value = !_isTransformLocked.value
+    }
+
+    fun resetTransform() {
+        _currentScale.value = 1f
+        _currentOffset.value = Offset.Zero
+    }
+
+    fun updateTransform(scale: Float, offset: Offset) {
+        _currentScale.value = scale
+        _currentOffset.value = offset
+    }
+
+    // OCR Functions
+
+    /**
+     * Performs a full scan of the bitmap to find all text elements.
+     */
+    fun analyzeFullImage(bitmap: Bitmap) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _isOcrProcessing.value = true
+            _detectedTextBlocks.value = emptyList()
+            val image = InputImage.fromBitmap(bitmap, 0)
+            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            recognizer.process(image)
+                .addOnSuccessListener { visionText ->
+                    val blocks = mutableListOf<DetectedText>()
+                    for (block in visionText.textBlocks) {
+                        for (line in block.lines) {
+                            for (element in line.elements) {
+                                element.boundingBox?.let { rect ->
+                                    blocks.add(DetectedText(element.text, rect))
+                                }
+                            }
+                        }
+                    }
+                    _detectedTextBlocks.value = blocks
+                    _isOcrProcessing.value = false
+                }
+                .addOnFailureListener {
+                    _isOcrProcessing.value = false
+                    _ocrError.value = true
+                }
+        }
+    }
+
+    /**
+     * Processes specifically selected texts to find a JAN code.
+     */
+    fun processSelectedTexts(texts: List<String>) {
+        if (texts.isEmpty()) return
+        
+        // 1. Join everything raw (preserving potential substitute chars like 'O')
+        val rawFullText = texts.joinToString("")
+        
+        // 2. Try to fix the raw combined text directly
+        var jan = com.example.janmanager.util.JanValidator.tryFix(rawFullText)
+        
+        if (jan == null) {
+            // Extract all likely sequences (digits + common mistakes)
+            val digits = Regex("\\d+").findAll(rawFullText).map { it.value }.toList()
+            val combinedDigits = digits.joinToString("")
+            
+            // Try fixing the combined digits
+            jan = com.example.janmanager.util.JanValidator.tryFix(combinedDigits)
+            
+            // 3. Fallback: If still not found, try finding 13 or 8 digit patterns in the raw text
+            if (jan == null) {
+                val patterns = Regex("\\d{7,13}").findAll(rawFullText).map { it.value }.toList()
+                for (p in patterns) {
+                    val f = com.example.janmanager.util.JanValidator.tryFix(p)
+                    if (f != null) {
+                        jan = f
+                        break
+                    }
+                }
+            }
+            
+            // 4. Last fallback: max length sequence
+            if (jan == null) {
+                jan = digits.firstOrNull { it.length == 13 }
+                    ?: if (combinedDigits.length == 13) combinedDigits else null
+                    ?: digits.firstOrNull { it.length == 8 }
+                    ?: if (combinedDigits.length == 8) combinedDigits else null
+                    ?: digits.maxByOrNull { it.length }
+            }
+        }
+
+        if (!jan.isNullOrEmpty()) {
+            onOcrJanFound(jan!!)
+        } else {
+            _ocrError.value = true
+        }
+    }
+
+    /**
+     * Processes live frames from the camera.
+     * Uses strict validation to avoid noise in history.
+     */
+    fun processLiveFrame(texts: List<String>) {
+        if (texts.isEmpty()) return
+        
+        for (text in texts) {
+            val cleaned = text.filter { it.isDigit() || it.isLetter() }
+            val fixed = com.example.janmanager.util.JanValidator.tryFix(cleaned)
+            
+            if (fixed != null && (fixed.length == 13 || fixed.length == 8)) {
+                // To avoid rapid duplicates in live mode, check if we just scanned this
+                val last = _recentlyScanned.value.firstOrNull()
+                if (last?.jan != fixed) {
+                    onOcrJanFound(fixed)
+                }
+            }
+        }
+    }
+
+    fun processOcrBitmap(bitmap: Bitmap) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _isOcrProcessing.value = true
+            val image = InputImage.fromBitmap(bitmap, 0)
+            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            
+            recognizer.process(image)
+                .addOnSuccessListener { visionText ->
+                    val allLines = visionText.textBlocks.flatMap { it.lines }
+                    val detectedBlocks = mutableListOf<DetectedText>()
+                    
+                    for (block in visionText.textBlocks) {
+                        for (line in block.lines) {
+                            val rawText = line.text
+                            val fixed = com.example.janmanager.util.JanValidator.tryFix(rawText)
+                            
+                            if (fixed != null) {
+                                // This is a JAN candidate!
+                                // Spatial Anchoring: Look for product names in the same block or nearby
+                                val nearbyText = block.lines
+                                    .filter { it != line }
+                                    .joinToString(" ") { it.text }
+                                    .take(100)
+                                
+                                // Anchor to DB if possible
+                                viewModelScope.launch {
+                                    val dbProduct = productRepository.getProductByJan(fixed)
+                                    val anchoredName = dbProduct?.productName
+                                    
+                                    synchronized(detectedBlocks) {
+                                        detectedBlocks.add(
+                                            DetectedText(
+                                                text = fixed,
+                                                boundingBox = line.boundingBox ?: android.graphics.Rect(),
+                                                anchoredProductName = anchoredName
+                                            )
+                                        )
+                                        _detectedTextBlocks.value = detectedBlocks.toList()
+                                    }
+                                }
+                            } else {
+                                // Not a JAN, but keep for visual feedback
+                                synchronized(detectedBlocks) {
+                                    detectedBlocks.add(
+                                        DetectedText(
+                                            text = rawText,
+                                            boundingBox = line.boundingBox ?: android.graphics.Rect()
+                                        )
+                                    )
+                                    _detectedTextBlocks.value = detectedBlocks.toList()
+                                }
+                            }
+                        }
+                    }
+                    _isOcrProcessing.value = false
+                }
+                .addOnFailureListener {
+                    _isOcrProcessing.value = false
+                    _ocrError.value = true
+                }
+        }
+    }
+
+    private fun onOcrJanFound(jan: String) {
+        viewModelScope.launch {
+            _currentOcrJan.value = jan
+            _ocrError.value = false
+            _currentBarcodeImage.value = BarcodeImageGenerator.generate(jan)
+            
+            val product = productRepository.getProductByJan(jan)
+            val productName = product?.productName ?: ""
+            _currentProductName.value = productName
+            
+            ocrScanHistoryRepository.insert(
+                OcrScanHistory(
+                    janCode = jan,
+                    productName = productName,
+                    scannedAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    fun showBarcodeFromHistory(history: OcrScanHistory) {
+        _currentOcrJan.value = history.janCode
+        _currentBarcodeImage.value = BarcodeImageGenerator.generate(history.janCode)
+        _currentProductName.value = history.productName
+        _ocrError.value = false
+    }
+
+    fun deleteOcrHistory(id: Int) {
+        viewModelScope.launch {
+            ocrScanHistoryRepository.deleteById(id)
+        }
+    }
+
+    fun clearAllOcrHistory() {
+        viewModelScope.launch {
+            ocrScanHistoryRepository.deleteAll()
         }
     }
 }

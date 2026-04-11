@@ -66,4 +66,8 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     implementation(libs.zxing.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation(libs.camera2)
+    implementation(libs.cameraLifecycle)
+    implementation(libs.cameraView)
 }

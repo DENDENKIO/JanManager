@@ -3,7 +3,9 @@ package com.example.janmanager.di
 import android.content.Context
 import androidx.room.Room
 import com.example.janmanager.data.local.AppDatabase
+import com.example.janmanager.data.local.MIGRATION_1_2
 import com.example.janmanager.data.local.dao.MakerCacheDao
+import com.example.janmanager.data.local.dao.OcrScanHistoryDao
 import com.example.janmanager.data.local.dao.PackageUnitDao
 import com.example.janmanager.data.local.dao.ProductGroupDao
 import com.example.janmanager.data.local.dao.ProductGroupItemDao
@@ -28,7 +30,7 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "jan_manager.db"
-        ).build()
+        ).addMigrations(MIGRATION_1_2).build()
     }
 
     @Provides
@@ -51,4 +53,7 @@ object DatabaseModule {
 
     @Provides
     fun provideProductGroupItemDao(db: AppDatabase): ProductGroupItemDao = db.productGroupItemDao()
+
+    @Provides
+    fun provideOcrScanHistoryDao(db: AppDatabase): OcrScanHistoryDao = db.ocrScanHistoryDao()
 }
