@@ -499,34 +499,56 @@ class ScanViewModel @Inject constructor(
      */
     fun processSelectedTexts(texts: List<String>) {
         if (texts.isEmpty()) return
-        
-        // 1. Join everything raw (preserving potential substitute chars like 'O')
+
+        // 1. 生テキストをそのまま連結（"O"などの誤認識文字も保持）
         val rawFullText = texts.joinToString("")
-        
-        // 2. Try to fix the raw combined text directly
+
+        // 2. 連結テキストを直接tryFixに渡す
         var jan = com.example.janmanager.util.JanValidator.tryFix(rawFullText)
-        
+
         if (jan == null) {
-            // Extract all likely sequences (digits + common mistakes)
             val digits = Regex("\\d+").findAll(rawFullText).map { it.value }.toList()
             val combinedDigits = digits.joinToString("")
-            
-            // Try fixing the combined digits
+
+            // 3. 全数字を連結してtryFix
             jan = com.example.janmanager.util.JanValidator.tryFix(combinedDigits)
-            
-            // 3. Fallback: If still not found, try finding 13 or 8 digit patterns in the raw text
+
+            // 4. ★NEW: 12桁の場合、先頭"0"を補完して13桁を試める（分割バーコード対策）
+            //    例: "291459" + "301187" = "291459301187"(12桁) → "0291459301187"(13桁)
+            if (jan == null && combinedDigits.length == 12) {
+                jan = com.example.janmanager.util.JanValidator.tryFix("0$combinedDigits")
+            }
+
+            // 5. ★NEW: 隣接ブロック連結スキャン（最大5ブロック組み合わせ）
+            //    OCRが "0", "291459", "301187" の3ブロックに分割した場合でも連結して検出できる
+            if (jan == null) {
+                outer@ for (i in digits.indices) {
+                    var concat = ""
+                    for (j in i until minOf(i + 5, digits.size)) {
+                        concat += digits[j]
+                        // 連結したものをそのままtryFix
+                        val f = com.example.janmanager.util.JanValidator.tryFix(concat)
+                        if (f != null) { jan = f; break@outer }
+                        // 12桁なら先頭0補完も試みる
+                        if (concat.length == 12) {
+                            val f2 = com.example.janmanager.util.JanValidator.tryFix("0$concat")
+                            if (f2 != null) { jan = f2; break@outer }
+                        }
+                        if (concat.length > 14) break
+                    }
+                }
+            }
+
+            // 6. Fallback: rawFullText から 7〜13桁パターンを探す（既存ロジック）
             if (jan == null) {
                 val patterns = Regex("\\d{7,13}").findAll(rawFullText).map { it.value }.toList()
                 for (p in patterns) {
                     val f = com.example.janmanager.util.JanValidator.tryFix(p)
-                    if (f != null) {
-                        jan = f
-                        break
-                    }
+                    if (f != null) { jan = f; break }
                 }
             }
-            
-            // 4. Last fallback: max length sequence
+
+            // 7. Last fallback: 桁数優先で最長の数字列を返す（既存ロジック）
             if (jan == null) {
                 jan = digits.firstOrNull { it.length == 13 }
                     ?: if (combinedDigits.length == 13) combinedDigits else null

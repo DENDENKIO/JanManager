@@ -21,19 +21,18 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import com.example.janmanager.util.JanValidator
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import com.example.janmanager.util.JanValidator
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size as ComposeSize
-
-import kotlinx.coroutines.launch
+import kotlin.math.max
 
 private data class DetectedItem(val rect: android.graphics.Rect, val code: String)
 
@@ -44,16 +43,40 @@ fun LiveScanScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val executor = remember { Dispatchers.Default.asExecutor() }
+    val executor = remember { ContextCompat.getMainExecutor(context) }
+    
+    // OCR & Barcode clients
     val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    val barcodeScanner = remember { 
+        BarcodeScanning.getClient(
+            BarcodeScannerOptions.Builder()
+                .setBarcodeFormats(Barcode.FORMAT_EAN_13, Barcode.FORMAT_EAN_8)
+                .build()
+        ) 
+    }
     
     // State for detected items (box + code)
     var detectedItems by remember { mutableStateOf<List<DetectedItem>>(emptyList()) }
     var previewSize by remember { mutableStateOf<Size?>(null) }
+    var rotationDegrees by remember { mutableStateOf(0) }
     
-    val scope = rememberCoroutineScope()
     var lastCapturedCode by remember { mutableStateOf("") }
-    var captureTimestamp by remember { mutableLongStateOf(0L) }
+    var captureTimestamp by remember { mutableStateOf(0L) }
+    
+    // Define handleDetection inside the scope to access states
+    fun handleDetection(items: List<DetectedItem>) {
+        detectedItems = items
+        if (items.isEmpty()) return
+        
+        val bestCode = items.first().code
+        val now = System.currentTimeMillis()
+        
+        if (bestCode != lastCapturedCode || now - captureTimestamp > 3000) {
+            lastCapturedCode = bestCode
+            captureTimestamp = now
+            onCodeDetected(listOf(bestCode))
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
@@ -76,40 +99,43 @@ fun LiveScanScreen(
                         .build()
                         .apply {
                             setAnalyzer(executor) { imageProxy ->
+                                rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                                previewSize = Size(imageProxy.width, imageProxy.height)
+                                
                                 val mediaImage = imageProxy.image
                                 if (mediaImage != null) {
-                                    val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-                                            recognizer.process(image)
-                                                .addOnSuccessListener { visionText ->
-                                                    val items = mutableListOf<DetectedItem>()
-                                                    
-                                                    previewSize = Size(imageProxy.width, imageProxy.height)
-
-                                                    for (block in visionText.textBlocks) {
-                                                        for (line in block.lines) {
-                                                            val lineText = line.text
-                                                            val fixed = JanValidator.tryFix(lineText)
-                                                            if (fixed != null) {
-                                                                line.boundingBox?.let { 
-                                                                    items.add(DetectedItem(it, fixed)) 
-                                                                }
+                                    val image = InputImage.fromMediaImage(mediaImage, rotationDegrees)
+                                    
+                                    // Run both Barcode scan (fast) and OCR (fallback)
+                                    // For simplicity and to avoid over-complicating results, we prioritize Barcode
+                                    barcodeScanner.process(image)
+                                        .addOnSuccessListener { barcodes ->
+                                            if (barcodes.isNotEmpty()) {
+                                                val items = barcodes.mapNotNull { b ->
+                                                    val rawValue = b.rawValue
+                                                    val rect = b.boundingBox
+                                                    if (rawValue != null && rect != null) {
+                                                        DetectedItem(rect, rawValue)
+                                                    } else null
+                                                }
+                                                handleDetection(items)
+                                            } else {
+                                                // Fallback to OCR if no barcode bars found
+                                                recognizer.process(image)
+                                                    .addOnSuccessListener { visionText ->
+                                                        val items = visionText.textBlocks.flatMap { block ->
+                                                            block.lines.mapNotNull { line ->
+                                                                val fixed = JanValidator.tryFix(line.text)
+                                                                val rect = line.boundingBox
+                                                                if (fixed != null && rect != null) {
+                                                                    DetectedItem(rect, fixed)
+                                                                } else null
                                                             }
                                                         }
+                                                        handleDetection(items)
                                                     }
-                                                    
-                                                    detectedItems = items
-                                                    
-                                                    // Auto-capture logic
-                                                    if (items.isNotEmpty()) {
-                                                        val bestCode = items.first().code
-                                                        val now = System.currentTimeMillis()
-                                                        if (bestCode != lastCapturedCode || now - captureTimestamp > 3000) {
-                                                            lastCapturedCode = bestCode
-                                                            captureTimestamp = now
-                                                            onCodeDetected(listOf(bestCode))
-                                                        }
-                                                    }
-                                                }
+                                            }
+                                        }
                                         .addOnCompleteListener {
                                             imageProxy.close()
                                         }
@@ -134,61 +160,76 @@ fun LiveScanScreen(
                 
                 previewView
             },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            update = { /* Nothing to update */ }
         )
 
         // Overlay to draw detected boxes and chips
         val density = LocalDensity.current
         
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val canvasWidthPx = constraints.maxWidth.toFloat()
-            val canvasHeightPx = constraints.maxHeight.toFloat()
+            val canvasWidth = constraints.maxWidth.toFloat()
+            val canvasHeight = constraints.maxHeight.toFloat()
             
-            val pSize = previewSize
-            if (pSize != null) {
-                for (item in detectedItems) {
-                    val box = item.rect
-                    
-                    // Simple linear mapping for chip positioning
-                    val chipX = (box.centerX().toFloat() * canvasWidthPx / pSize.width.toFloat())
-                    val chipY = (box.top.toFloat() * canvasHeightPx / pSize.height.toFloat())
-                    
-                    Surface(
-                        color = Color.Cyan.copy(alpha = 0.8f),
-                        contentColor = Color.Black,
-                        shape = MaterialTheme.shapes.small,
-                        modifier = Modifier
-                            .offset {
-                                IntOffset(
-                                    (chipX - 50 * density.density).toInt(),
-                                    (chipY - 40 * density.density).toInt()
-                                )
-                            }
-                    ) {
-                        Text(
-                            text = item.code,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
+            val pSize = previewSize ?: return@BoxWithConstraints
+            val rotation = rotationDegrees
+            
+            // Coordinate mapping (Logic: Rotate -> Scale -> Center-Crop)
+            val isRotated = rotation == 90 || rotation == 270
+            val effWidth = if (isRotated) pSize.height.toFloat() else pSize.width.toFloat()
+            val effHeight = if (isRotated) pSize.width.toFloat() else pSize.height.toFloat()
+            
+            val scale = max(canvasWidth / effWidth, canvasHeight / effHeight)
+            val dx = (canvasWidth - effWidth * scale) / 2f
+            val dy = (canvasHeight - effHeight * scale) / 2f
+
+            fun mapRect(box: android.graphics.Rect): Offset {
+                // Rotated coordinates in portrait
+                val xPrime = if (rotation == 90) pSize.height - box.centerY() else box.centerX()
+                val yPrime = if (rotation == 90) box.centerX() else box.centerY()
+                
+                return Offset(
+                    xPrime.toFloat() * scale + dx,
+                    yPrime.toFloat() * scale + dy
+                )
+            }
+
+            for (item in detectedItems) {
+                val pos = mapRect(item.rect)
+                
+                Surface(
+                    color = Color.Cyan.copy(alpha = 0.8f),
+                    contentColor = Color.Black,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier
+                        .offset {
+                            IntOffset(
+                                (pos.x - 50 * density.density).toInt(),
+                                (pos.y - 40 * density.density).toInt()
+                            )
+                        }
+                ) {
+                    Text(
+                        text = item.code,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
             }
 
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val pSizeInner = previewSize ?: return@Canvas
-                
                 detectedItems.forEach { item ->
                     val box = item.rect
+                    // Draw rotated and scaled boxes
+                    val x1 = (if (rotation == 90) pSize.height - box.bottom else box.left).toFloat() * scale + dx
+                    val y1 = (if (rotation == 90) box.left else box.top).toFloat() * scale + dy
+                    val x2 = (if (rotation == 90) pSize.height - box.top else box.right).toFloat() * scale + dx
+                    val y2 = (if (rotation == 90) box.right else box.bottom).toFloat() * scale + dy
+
                     drawRect(
                         color = Color.Cyan,
-                        topLeft = Offset(
-                            box.left.toFloat() * size.width / pSizeInner.width.toFloat(), 
-                            box.top.toFloat() * size.height / pSizeInner.height.toFloat()
-                        ),
-                        size = androidx.compose.ui.geometry.Size(
-                            box.width().toFloat() * size.width / pSizeInner.width.toFloat(),
-                            box.height().toFloat() * size.height / pSizeInner.height.toFloat()
-                        ),
+                        topLeft = Offset(x1, y1),
+                        size = ComposeSize(x2 - x1, y2 - y1),
                         alpha = 0.6f,
                         style = Stroke(width = 2.dp.toPx())
                     )
@@ -196,7 +237,12 @@ fun LiveScanScreen(
             }
         }
 
-        // Close button
+        // Capture logic moved to separate function
+        LaunchedEffect(Unit) {
+            // Placeholder for periodic check if needed
+        }
+
+        // Close button & Indicator
         IconButton(
             onClick = onClose,
             modifier = Modifier
@@ -208,7 +254,7 @@ fun LiveScanScreen(
         }
         
         Text(
-            text = "LIVE SCAN MODE",
+            text = "LIVE SCAN MODE (HYBRID)",
             style = MaterialTheme.typography.labelLarge,
             color = Color.Cyan,
             modifier = Modifier
@@ -218,3 +264,4 @@ fun LiveScanScreen(
         )
     }
 }
+

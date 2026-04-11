@@ -23,7 +23,7 @@ object BarcodeImageGenerator {
             }
             
             val hints = mapOf(
-                EncodeHintType.MARGIN to 4,
+                EncodeHintType.MARGIN to 15,
                 EncodeHintType.CHARACTER_SET to "UTF-8"
             )
             

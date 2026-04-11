@@ -336,8 +336,13 @@ fun HistoryItem(
                 }
             }
             
-            // Minimal barcode preview
-            Box(modifier = Modifier.size(60.dp, 30.dp)) {
+            // Large barcode preview for easy scanning
+            Box(
+                modifier = Modifier
+                    .size(120.dp, 40.dp)
+                    .background(Color.White, shape = MaterialTheme.shapes.extraSmall)
+                    .padding(2.dp)
+            ) {
                 BarcodeView(barcode = history.janCode)
             }
             

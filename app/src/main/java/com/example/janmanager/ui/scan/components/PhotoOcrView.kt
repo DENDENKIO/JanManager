@@ -46,6 +46,11 @@ fun PhotoOcrView(
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var containerSize by remember { mutableStateOf(Size.Zero) }
+    
+    // ★NEW: なぞり中の指軌跡から計算した選択矩形（ジェスチャー中のみ非null）
+    var dragSelectionRect by remember { mutableStateOf<Rect?>(null) }
+    // ★NEW: なぞり開始点（スクリーン座標）
+    var dragStartPos by remember { mutableStateOf<Offset?>(null) }
 
     val density = LocalDensity.current.density
     
@@ -113,7 +118,7 @@ fun PhotoOcrView(
             .fillMaxSize()
             .background(Color.Black)
             .onSizeChanged { containerSize = it.toSize() }
-            .pointerInput(isLocked, detectedTexts, imageDrawParams, scale, offset) {
+            .pointerInput(isLocked, detectedTexts, imageDrawParams) {
                 if (isLocked) return@pointerInput
                 
                 awaitEachGesture {
@@ -134,6 +139,7 @@ fun PhotoOcrView(
                                 if (params != null) {
                                     detectedTexts.forEachIndexed { index, detected ->
                                         val screenRect = mapBitmapRectToScreen(detected.boundingBox, params, scale, offset)
+                                        // 1-tap selection: inflate 15dp for easier tap
                                         if (screenRect.inflate(15f * density).contains(lastTouchPos!!)) {
                                             // Smart selection: if it's a candidate, use the fixed version
                                             val fixed = JanValidator.tryFix(detected.text)
@@ -171,7 +177,20 @@ fun PhotoOcrView(
                             val pointer = pointers[0]
                             val touchPos = pointer.position
                             val params = imageDrawParams
-                            
+
+                            // ★NEW: ドラッグ開始点を記録し、選択矩形をリアルタイム更新
+                            if (dragStartPos == null) {
+                                dragStartPos = touchPos
+                            }
+                            dragStartPos?.let { start ->
+                                dragSelectionRect = Rect(
+                                    left   = minOf(start.x, touchPos.x),
+                                    top    = minOf(start.y, touchPos.y),
+                                    right  = maxOf(start.x, touchPos.x),
+                                    bottom = maxOf(start.y, touchPos.y)
+                                )
+                            }
+
                             if (params != null) {
                                 // Check if this touch segment intersects any detected text block
                                 detectedTexts.forEachIndexed { index, detected ->
@@ -179,8 +198,8 @@ fun PhotoOcrView(
                                         val screenRect = mapBitmapRectToScreen(
                                             detected.boundingBox, params, scale, offset
                                         )
-                                        // Lenient Hit-Test: Expand the rect by 20dp for a foolproof "magnetic" selection
-                                        val inflatedRect = screenRect.inflate(20f * density)
+                                        // ★REDUCED: inflate を 30f → 8f に縮小（隣接ブロックの誤爆防止）
+                                        val inflatedRect = screenRect.inflate(8f * density)
                                         
                                         val isHit = if (lastTouchPos == null) {
                                             inflatedRect.contains(touchPos)
@@ -219,6 +238,10 @@ fun PhotoOcrView(
                         onTextsSelected(sortedTexts)
                     }
                     selectedIndices.clear()
+
+                    // ★NEW: ドラッグ選択矩形をリセット
+                    dragSelectionRect = null
+                    dragStartPos = null
                 }
             }
     ) {
@@ -294,6 +317,36 @@ fun PhotoOcrView(
                     size = rect.size
                 )
             }
+        }
+
+        // ★NEW: なぞり中の選択矩形（短形）をリアルタイム描画
+        // scaleとoffsetを考慮した座標に変換して表示
+        dragSelectionRect?.let { selRect ->
+            // このCanvasはgraphicsLayerでscale/offset適用済みのため、
+            // スクリーン座標をgraphicsLayer逆変換して描画座標に変換する
+            val drawLeft   = (selRect.left   - offset.x) / scale
+            val drawTop    = (selRect.top    - offset.y) / scale
+            val drawRight  = (selRect.right  - offset.x) / scale
+            val drawBottom = (selRect.bottom - offset.y) / scale
+
+            // 選択範囲の塗りつぶし（半透明の青）
+            drawRect(
+                color = Color(0x334FC3F7),
+                topLeft = Offset(drawLeft, drawTop),
+                size = Size(drawRight - drawLeft, drawBottom - drawTop)
+            )
+            // 選択範囲のボーダー（白の点線風の細い枠）
+            drawRect(
+                color = Color.White.copy(alpha = 0.85f),
+                topLeft = Offset(drawLeft, drawTop),
+                size = Size(drawRight - drawLeft, drawBottom - drawTop),
+                style = Stroke(
+                    width = 1.5.dp.toPx(),
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
+                        floatArrayOf(8f, 4f), 0f
+                    )
+                )
+            )
         }
     }
 
