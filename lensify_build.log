@@ -1,0 +1,420 @@
+Initialized native services in: C:\Users\MASTER-T\.gradle\native
+Initialized jansi services in: C:\Users\MASTER-T\.gradle\native
+The client will now receive all logging from the daemon (pid: 19224). The daemon log file: C:\Users\MASTER-T\.gradle\daemon\9.3.1\daemon-19224.out.log
+Starting 5th build in daemon [uptime: 2 mins 13.568 secs, performance: 100%, GC rate: 0.00/s, heap usage: 0% of 2 GiB]
+Using 8 worker leases.
+Operational build model parameters: {requiresToolingModels=false, parallelProjectExecution=false, configureOnDemand=false, configurationCache=false, configurationCacheParallelStore=false, configurationCacheParallelLoad=true, isolatedProjects=false, parallelProjectConfiguration=false, intermediateModelCache=false, parallelToolingApiActions=false, invalidateCoupledProjects=false, modelAsProjectDependency=false, resilientModelBuilding=false}
+Now considering [C:\Users\MASTER-T\AndroidStudioProjects\JanManager] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Starting Build
+Resolved plugin [id: 'org.gradle.toolchains.foojay-resolver-convention', version: '1.0.0']
+Settings evaluated using settings file 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\settings.gradle.kts'.
+Projects loaded. Root project using build file 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\build.gradle.kts'.
+Included projects: [root project 'JanManager', project ':app']
+
+> Configure project :
+Evaluating root project 'JanManager' using build file 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '9.1.0', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.2.0', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.2.0', apply: false]
+Resolved plugin [id: 'com.google.devtools.ksp', version: '2.2.0-2.0.2', apply: false]
+Resolved plugin [id: 'com.google.dagger.hilt.android', version: '2.59.2', apply: false]
+Resolved plugin [id: 'androidx.room', version: '2.8.4', apply: false]
+
+> Configure project :app
+Evaluating project ':app' using build file 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '9.1.0']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.2.0']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.serialization', version: '2.2.0']
+Resolved plugin [id: 'com.google.devtools.ksp', version: '2.2.0-2.0.2']
+Resolved plugin [id: 'com.google.dagger.hilt.android', version: '2.59.2']
+Resolved plugin [id: 'androidx.room', version: '2.8.4']
+WARNING: The option setting 'android.disallowKotlinSourceSets=false' is experimental.
+The current default is 'true'.
+Build 7c6c9424-f32a-4645-9c3a-686b17e84f33 is started
+Using default execution profile
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+All projects evaluated.
+Adding -Xuse-inline-scopes-numbers Kotlin compiler flag for task :app:compileDebugKotlin
+Task name matched 'compileDebugKotlin'
+Selected primary task 'compileDebugKotlin' from project :
+Tasks to be executed: [task ':app:preBuild', task ':app:preDebugBuild', task ':app:generateDebugResources', task ':app:packageDebugResources', task ':app:processDebugNavigationResources', task ':app:parseDebugLocalResources', task ':app:generateDebugRFile', task ':app:kspDebugKotlin', task ':app:copyRoomSchemas', task ':app:compileDebugKotlin']
+Tasks that were excluded: []
+Resolve mutations for :app:preBuild (Thread[#202,Execution worker,5,main]) started.
+:app:preBuild (Thread[#202,Execution worker,5,main]) started.
+
+> Task :app:preBuild UP-TO-DATE
+Skipping task ':app:preBuild' as it has no actions.
+Resolve mutations for :app:preDebugBuild (Thread[#202,Execution worker,5,main]) started.
+:app:preDebugBuild (Thread[#202,Execution worker,5,main]) started.
+
+> Task :app:preDebugBuild UP-TO-DATE
+Skipping task ':app:preDebugBuild' as it has no actions.
+Resolve mutations for :app:generateDebugResources (Thread[#201,included builds,5,main]) started.
+:app:generateDebugResources (Thread[#202,Execution worker,5,main]) started.
+
+> Task :app:generateDebugResources UP-TO-DATE
+Caching disabled for task ':app:generateDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:generateDebugResources' as it is up-to-date.
+Resolve mutations for :app:packageDebugResources (Thread[#201,included builds,5,main]) started.
+:app:packageDebugResources (Thread[#201,included builds,5,main]) started.
+
+> Task :app:packageDebugResources UP-TO-DATE
+Caching disabled for task ':app:packageDebugResources' because:
+  Build cache is disabled
+Skipping task ':app:packageDebugResources' as it is up-to-date.
+Resolve mutations for :app:processDebugNavigationResources (Thread[#202,Execution worker,5,main]) started.
+:app:processDebugNavigationResources (Thread[#202,Execution worker,5,main]) started.
+
+> Task :app:processDebugNavigationResources UP-TO-DATE
+Caching disabled for task ':app:processDebugNavigationResources' because:
+  Build cache is disabled
+Skipping task ':app:processDebugNavigationResources' as it is up-to-date.
+Resolve mutations for :app:parseDebugLocalResources (Thread[#202,Execution worker,5,main]) started.
+:app:parseDebugLocalResources (Thread[#206,Execution worker Thread 5,5,main]) started.
+
+> Task :app:parseDebugLocalResources UP-TO-DATE
+Caching disabled for task ':app:parseDebugLocalResources' because:
+  Build cache is disabled
+Skipping task ':app:parseDebugLocalResources' as it is up-to-date.
+Resolve mutations for :app:generateDebugRFile (Thread[#202,Execution worker,5,main]) started.
+:app:generateDebugRFile (Thread[#202,Execution worker,5,main]) started.
+
+> Task :app:generateDebugRFile UP-TO-DATE
+Caching disabled for task ':app:generateDebugRFile' because:
+  Build cache is disabled
+Skipping task ':app:generateDebugRFile' as it is up-to-date.
+Resolve mutations for :app:kspDebugKotlin (Thread[#206,Execution worker Thread 5,5,main]) started.
+:app:kspDebugKotlin (Thread[#202,Execution worker,5,main]) started.
+
+> Task :app:kspDebugKotlin
+Caching disabled for task ':app:kspDebugKotlin' because:
+  Build cache is disabled
+Task ':app:kspDebugKotlin' is not up-to-date because:
+  Value of input property 'kspConfig.logLevel' has changed for task ':app:kspDebugKotlin'
+The input changes require a full rebuild for incremental task ':app:kspDebugKotlin'.
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+i: [ksp] loaded provider(s): [androidx.room.RoomKspProcessor$Provider, dagger.hilt.processor.internal.uninstallmodules.KspUninstallModulesProcessor$Provider, dagger.hilt.android.processor.internal.viewmodel.KspViewModelProcessor$Provider, dagger.hilt.processor.internal.earlyentrypoint.KspEarlyEntryPointProcessor$Provider, dagger.hilt.android.processor.internal.androidentrypoint.KspAndroidEntryPointProcessor$Provider, dagger.hilt.processor.internal.definecomponent.KspDefineComponentProcessor$Provider, dagger.hilt.processor.internal.originatingelement.KspOriginatingElementProcessor$Provider, dagger.hilt.android.processor.internal.bindvalue.KspBindValueProcessor$Provider, dagger.hilt.processor.internal.root.KspComponentTreeDepsProcessor$Provider, dagger.hilt.processor.internal.root.KspRootProcessor$Provider, dagger.hilt.processor.internal.aliasof.KspAliasOfProcessor$Provider, dagger.hilt.processor.internal.aggregateddeps.KspAggregatedDepsProcessor$Provider, dagger.hilt.processor.internal.generatesrootinput.KspGeneratesRootInputProcessor$Provider, dagger.hilt.android.processor.internal.customtestapplication.KspCustomTestApplicationProcessor$Provider, dagger.internal.codegen.KspComponentProcessor$Provider]
+Resolve mutations for :app:copyRoomSchemas (Thread[#202,Execution worker,5,main]) started.
+:app:copyRoomSchemas (Thread[#202,Execution worker,5,main]) started.
+
+> Task :app:copyRoomSchemas NO-SOURCE
+Skipping task ':app:copyRoomSchemas' as it has no source files and no previous output files.
+Resolve mutations for :app:compileDebugKotlin (Thread[#202,Execution worker,5,main]) started.
+:app:compileDebugKotlin (Thread[#201,included builds,5,main]) started.
+
+> Task :app:compileDebugKotlin
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+Custom actions are attached to task ':app:compileDebugKotlin'.
+Caching disabled for task ':app:compileDebugKotlin' because:
+  Build cache is disabled
+Task ':app:compileDebugKotlin' is not up-to-date because:
+  Input property 'sources' file C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\scan\ScanViewModel.kt has changed.
+  Input property 'sources' file C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\scan\components\PhotoOcrView.kt has changed.
+  Input property 'sources' file C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\JanValidator.kt has changed.
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\kotlin', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\java', not found
+file or directory 'C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\debug\kotlin', not found
+Kotlin source files: C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\AppDatabase.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\converter\Converters.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\dao\MakerCacheDao.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\dao\OcrScanHistoryDao.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\dao\PackageUnitDao.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\dao\ProductGroupDao.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\dao\ProductGroupItemDao.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\dao\ProductMasterDao.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\dao\ScanItemDao.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\dao\ScanSessionDao.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\entity\Enums.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\entity\MakerCache.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\entity\OcrScanHistory.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\entity\PackageUnit.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\entity\ProductGroup.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\entity\ProductGroupItem.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\entity\ProductMaster.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\entity\ScanItem.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\local\entity\ScanSession.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\repository\GroupRepository.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\repository\OcrScanHistoryRepository.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\repository\ProductRepository.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\repository\ScanRepository.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\data\settings\SettingsDataStore.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\di\AppModule.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\di\DatabaseModule.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\JanManagerApp.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\MainActivity.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\ai\AiFetchScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\ai\AiFetchViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\ai\components\AiResultPreview.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\ai\components\AiWebViewWrapper.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\common\BarcodeView.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\group\GroupDetailScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\group\GroupDetailViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\group\GroupListScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\group\GroupListViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\group\GroupScanScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\group\GroupScanViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\home\HomeScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\home\HomeViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\navigation\NavGraph.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\navigation\Routes.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\order\OrderListScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\order\OrderListViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\order\OrderScanScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\order\OrderScanViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\order\SessionListScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\order\SessionListViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\product\ProductDetailScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\product\ProductDetailViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\product\ProductListScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\product\ProductListViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\scan\components\ConfirmMode.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\scan\components\ContinuousMode.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\scan\components\LinkageMode.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\scan\components\LiveScanScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\scan\components\PhotoOcrView.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\scan\ScanScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\scan\ScanViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\settings\SettingsScreen.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\settings\SettingsViewModel.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\theme\Color.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\theme\Theme.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\ui\theme\Type.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\AiPromptBuilder.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\AiResponseParser.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\AiWebViewInteractor.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\BarcodeGenerator.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\BarcodeImageGenerator.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\ClipboardHelper.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\JanCodeUtil.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\JanValidator.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\Normalizer.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\SoundHelper.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\src\main\java\com\example\janmanager\util\WebViewJsHelper.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\kotlin\com\example\janmanager\data\local\AppDatabase_Impl.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\kotlin\com\example\janmanager\data\local\dao\MakerCacheDao_Impl.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\kotlin\com\example\janmanager\data\local\dao\OcrScanHistoryDao_Impl.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\kotlin\com\example\janmanager\data\local\dao\PackageUnitDao_Impl.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\kotlin\com\example\janmanager\data\local\dao\ProductGroupDao_Impl.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\kotlin\com\example\janmanager\data\local\dao\ProductGroupItemDao_Impl.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\kotlin\com\example\janmanager\data\local\dao\ProductMasterDao_Impl.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\kotlin\com\example\janmanager\data\local\dao\ScanItemDao_Impl.kt, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\kotlin\com\example\janmanager\data\local\dao\ScanSessionDao_Impl.kt
+Java source files: C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\data\repository\GroupRepository_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\data\repository\OcrScanHistoryRepository_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\data\repository\ProductRepository_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\data\repository\ScanRepository_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\di\AppModule_ProvideSettingsDataStoreFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\di\DatabaseModule_ProvideAppDatabaseFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\di\DatabaseModule_ProvideMakerCacheDaoFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\di\DatabaseModule_ProvideOcrScanHistoryDaoFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\di\DatabaseModule_ProvidePackageUnitDaoFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\di\DatabaseModule_ProvideProductGroupDaoFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\di\DatabaseModule_ProvideProductGroupItemDaoFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\di\DatabaseModule_ProvideProductMasterDaoFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\di\DatabaseModule_ProvideScanItemDaoFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\di\DatabaseModule_ProvideScanSessionDaoFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\Hilt_MainActivity.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\JanManagerApp_GeneratedInjector.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\JanManagerApp_MembersInjector.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\MainActivity_GeneratedInjector.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\ai\AiFetchViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\ai\AiFetchViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\ai\AiFetchViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\ai\AiFetchViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\ai\AiFetchViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupDetailViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupDetailViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupDetailViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupDetailViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupDetailViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupListViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupListViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupListViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupScanViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupScanViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupScanViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupScanViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\group\GroupScanViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\home\HomeViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\home\HomeViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\home\HomeViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\home\HomeViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\home\HomeViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\OrderListViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\OrderListViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\OrderListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\OrderListViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\OrderListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\OrderScanViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\OrderScanViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\OrderScanViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\OrderScanViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\OrderScanViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\SessionListViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\SessionListViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\SessionListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\SessionListViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\order\SessionListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\product\ProductDetailViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\product\ProductDetailViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\product\ProductDetailViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\product\ProductDetailViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\product\ProductDetailViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\product\ProductListViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\product\ProductListViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\product\ProductListViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\product\ProductListViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\product\ProductListViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\scan\ScanViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\scan\ScanViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\scan\ScanViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\scan\ScanViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\scan\ScanViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\settings\SettingsViewModel_Factory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\settings\SettingsViewModel_HiltModules.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\settings\SettingsViewModel_HiltModules_BindsModule_Binds_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\settings\SettingsViewModel_HiltModules_KeyModule_ProvideFactory.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\com\example\janmanager\ui\settings\SettingsViewModel_HiltModules_KeyModule_Provide_LazyMapKey.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\dagger\hilt\internal\aggregatedroot\codegen\_com_example_janmanager_JanManagerApp.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_di_AppModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_di_DatabaseModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_JanManagerApp_GeneratedInjector.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_MainActivity_GeneratedInjector.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_ai_AiFetchViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_ai_AiFetchViewModel_HiltModules_KeyModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_group_GroupDetailViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_group_GroupDetailViewModel_HiltModules_KeyModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_group_GroupListViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_group_GroupListViewModel_HiltModules_KeyModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_group_GroupScanViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_group_GroupScanViewModel_HiltModules_KeyModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_home_HomeViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_home_HomeViewModel_HiltModules_KeyModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_order_OrderListViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_order_OrderListViewModel_HiltModules_KeyModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_order_OrderScanViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_order_OrderScanViewModel_HiltModules_KeyModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_order_SessionListViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_order_SessionListViewModel_HiltModules_KeyModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_product_ProductDetailViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_product_ProductDetailViewModel_HiltModules_KeyModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_product_ProductListViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_product_ProductListViewModel_HiltModules_KeyModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_scan_ScanViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_scan_ScanViewModel_HiltModules_KeyModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_settings_SettingsViewModel_HiltModules_BindsModule.java, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\generated\ksp\debug\java\hilt_aggregated_deps\_com_example_janmanager_ui_settings_SettingsViewModel_HiltModules_KeyModule.java
+Script source files: 
+Script file extensions: 
+Using Kotlin/JVM incremental compilation
+[KOTLIN] Kotlin compilation 'jdkHome' argument: C:\Users\MASTER-T\.gradle\jdks\eclipse_adoptium-17-amd64-windows.2
+i: starting the daemon as: C:\Users\MASTER-T\.antigravity\extensions\redhat.java-1.53.0-win32-x64\jre\21.0.10-win32-x86_64\bin\java -cp C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-compiler-embeddable\2.2.10\6882d39ef03b18879c1a5d2a83c2212361bed5fe\kotlin-compiler-embeddable-2.2.10.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-stdlib\2.2.10\30de6faa127a4a012db8e71bf1b9c0a99b1402b2\kotlin-stdlib-2.2.10.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-script-runtime\2.2.10\712f9bc08f378c13a4a00f0bbb28c76e59183e83\kotlin-script-runtime-2.2.10.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-reflect\1.6.10\1cbe9c92c12a94eea200d23c2bbaedaf3daf5132\kotlin-reflect-1.6.10.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-daemon-embeddable\2.2.10\212fd3c2c6e4e5d0f4db3c4191233e2b622380cc\kotlin-daemon-embeddable-2.2.10.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlinx\kotlinx-coroutines-core-jvm\1.8.0\ac1dc37a30a93150b704022f8d895ee1bd3a36b3\kotlinx-coroutines-core-jvm-1.8.0.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains\annotations\13.0\919f0dfe192fb4e063e7dacadee7f8bb9a2672a9\annotations-13.0.jar -Djava.awt.headless=true -Djava.rmi.server.hostname=127.0.0.1 -Xmx2048m -XX:ReservedCodeCacheSize=320m -Dkotlin.environment.keepalive -ea -XX:+UseCodeCacheFlushing -XX:+UseParallelGC -Dkotlin.daemon.initiator.marker.file=C:\Users\MASTER-T\AppData\Local\Temp\kotlin-compiler-in-ananager-553006135785306840.alive --add-exports java.base/sun.nio.ch=ALL-UNNAMED org.jetbrains.kotlin.daemon.KotlinCompileDaemon --daemon-runFilesPath C:\Users\MASTER-T\AppData\Local\kotlin\daemon --daemon-autoshutdownIdleSeconds=7200 --daemon-compilerClasspath C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-compiler-embeddable\2.2.10\6882d39ef03b18879c1a5d2a83c2212361bed5fe\kotlin-compiler-embeddable-2.2.10.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-stdlib\2.2.10\30de6faa127a4a012db8e71bf1b9c0a99b1402b2\kotlin-stdlib-2.2.10.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-script-runtime\2.2.10\712f9bc08f378c13a4a00f0bbb28c76e59183e83\kotlin-script-runtime-2.2.10.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-reflect\1.6.10\1cbe9c92c12a94eea200d23c2bbaedaf3daf5132\kotlin-reflect-1.6.10.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-daemon-embeddable\2.2.10\212fd3c2c6e4e5d0f4db3c4191233e2b622380cc\kotlin-daemon-embeddable-2.2.10.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains.kotlinx\kotlinx-coroutines-core-jvm\1.8.0\ac1dc37a30a93150b704022f8d895ee1bd3a36b3\kotlinx-coroutines-core-jvm-1.8.0.jar;C:\Users\MASTER-T\.gradle\caches\modules-2\files-2.1\org.jetbrains\annotations\13.0\919f0dfe192fb4e063e7dacadee7f8bb9a2672a9\annotations-13.0.jar
+i: #1 retrying connecting to the daemon 
+Options for KOTLIN DAEMON: IncrementalCompilationOptions(super=CompilationOptions(compilerMode=INCREMENTAL_COMPILER, targetPlatform=JVM, reportCategories=[0, 3], reportSeverity=2, requestedCompilationResults=[0], kotlinScriptExtensions=[]), sourceChanges=org.jetbrains.kotlin.buildtools.api.SourcesChanges$Known@7c8d654a, classpathChanges=NoChanges, workingDir=C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\kotlin\compileDebugKotlin\cacheable, multiModuleICSettings=MultiModuleICSettings(buildHistoryFile=C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\kotlin\compileDebugKotlin\local-state\build-history.bin, useModuleDetection=true), icFeatures=IncrementalCompilationFeatures(usePreciseJavaTracking=true, withAbiSnapshot=false, preciseCompilationResultsBackup=true, keepIncrementalCompilationCachesInMemory=true, enableUnsafeIncrementalCompilationForMultiplatform=false, enableMonotonousIncrementalCompileSetExpansion=true), outputFiles=[C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\intermediates\built_in_kotlinc\debug\compileDebugKotlin\classes, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\kotlin\compileDebugKotlin\cacheable, C:\Users\MASTER-T\AndroidStudioProjects\JanManager\app\build\kotlin\compileDebugKotlin\local-state])
+e: file:///C:/Users/MASTER-T/AndroidStudioProjects/JanManager/app/src/main/java/com/example/janmanager/ui/scan/components/PhotoOcrView.kt:309:21 Unresolved reference 'Surface'.
+e: file:///C:/Users/MASTER-T/AndroidStudioProjects/JanManager/app/src/main/java/com/example/janmanager/ui/scan/components/PhotoOcrView.kt:312:33 Unresolved reference 'MaterialTheme'.
+e: file:///C:/Users/MASTER-T/AndroidStudioProjects/JanManager/app/src/main/java/com/example/janmanager/ui/scan/components/PhotoOcrView.kt:314:30 Unresolved reference 'offset'.
+e: file:///C:/Users/MASTER-T/AndroidStudioProjects/JanManager/app/src/main/java/com/example/janmanager/ui/scan/components/PhotoOcrView.kt:321:25 Unresolved reference 'Text'.
+e: file:///C:/Users/MASTER-T/AndroidStudioProjects/JanManager/app/src/main/java/com/example/janmanager/ui/scan/components/PhotoOcrView.kt:323:49 Unresolved reference 'padding'.
+e: file:///C:/Users/MASTER-T/AndroidStudioProjects/JanManager/app/src/main/java/com/example/janmanager/ui/scan/components/PhotoOcrView.kt:324:37 Unresolved reference 'MaterialTheme'.
+Finished executing kotlin compiler using DAEMON strategy
+Restoring task outputs to pre-compilation state
+
+> Task :app:compileDebugKotlin FAILED
+Build 7c6c9424-f32a-4645-9c3a-686b17e84f33 is closed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+* Exception is:
+org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:compileDebugKotlin'.
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:135)
+	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:288)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:133)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:121)
+	at org.gradle.api.internal.tasks.execution.ProblemsTaskPathTrackingTaskExecuter.execute(ProblemsTaskPathTrackingTaskExecuter.java:41)
+	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:74)
+	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter.execute(EventFiringTaskExecuter.java:52)
+	at org.gradle.execution.plan.DefaultNodeExecutor.executeLocalTaskNode(DefaultNodeExecutor.java:55)
+	at org.gradle.execution.plan.DefaultNodeExecutor.execute(DefaultNodeExecutor.java:34)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:355)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:343)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.lambda$execute$0(DefaultTaskExecutionGraph.java:339)
+	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:84)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:339)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:328)
+	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
+	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+	at org.gradle.execution.plan.DefaultPlanExecutor.process(DefaultPlanExecutor.java:111)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.executeWithServices(DefaultTaskExecutionGraph.java:146)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.execute(DefaultTaskExecutionGraph.java:131)
+	at org.gradle.execution.SelectedTaskExecutionAction.execute(SelectedTaskExecutionAction.java:35)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:54)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:43)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor.execute(BuildOperationFiringBuildWorkerExecutor.java:40)
+	at org.gradle.internal.build.DefaultBuildLifecycleController.lambda$executeTasks$10(DefaultBuildLifecycleController.java:313)
+	at org.gradle.internal.model.StateTransitionController.doTransition(StateTransitionController.java:276)
+	at org.gradle.internal.model.StateTransitionController.lambda$tryTransition$8(StateTransitionController.java:187)
+	at org.gradle.internal.work.DefaultSynchronizer.withLock(DefaultSynchronizer.java:45)
+	at org.gradle.internal.model.StateTransitionController.tryTransition(StateTransitionController.java:187)
+	at org.gradle.internal.build.DefaultBuildLifecycleController.executeTasks(DefaultBuildLifecycleController.java:304)
+	at org.gradle.internal.build.DefaultBuildWorkGraphController$DefaultBuildWorkGraph.runWork(DefaultBuildWorkGraphController.java:220)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withLocksAcquired$0(DefaultWorkerLeaseService.java:269)
+	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:42)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocksAcquired(DefaultWorkerLeaseService.java:267)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:259)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:127)
+	at org.gradle.composite.internal.DefaultBuildController.doRun(DefaultBuildController.java:181)
+	at org.gradle.composite.internal.DefaultBuildController.access$000(DefaultBuildController.java:50)
+	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.lambda$run$0(DefaultBuildController.java:198)
+	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:84)
+	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.run(DefaultBuildController.java:198)
+	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:47)
+Caused by: org.gradle.workers.internal.DefaultWorkerExecutor$WorkExecutionException: A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+	at org.gradle.workers.internal.DefaultWorkerExecutor$WorkItemExecution.waitForCompletion(DefaultWorkerExecutor.java:289)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.lambda$waitForItemsAndGatherFailures$2(DefaultAsyncWorkTracker.java:130)
+	at org.gradle.internal.Factories$1.create(Factories.java:30)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withoutLocks$2(DefaultWorkerLeaseService.java:344)
+	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:42)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLocks(DefaultWorkerLeaseService.java:342)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLocks(DefaultWorkerLeaseService.java:326)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withoutLock(DefaultWorkerLeaseService.java:331)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:126)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForItemsAndGatherFailures(DefaultAsyncWorkTracker.java:92)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForAll(DefaultAsyncWorkTracker.java:78)
+	at org.gradle.internal.work.DefaultAsyncWorkTracker.waitForCompletion(DefaultAsyncWorkTracker.java:66)
+	at org.gradle.api.internal.tasks.execution.TaskExecution$3.run(TaskExecution.java:267)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:29)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:26)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.run(DefaultBuildOperationRunner.java:47)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeAction(TaskExecution.java:244)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeActions(TaskExecution.java:227)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeWithPreviousOutputFiles(TaskExecution.java:210)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.execute(TaskExecution.java:176)
+	at org.gradle.internal.execution.steps.ExecuteStep.executeInternal(ExecuteStep.java:110)
+	at org.gradle.internal.execution.steps.ExecuteStep.access$000(ExecuteStep.java:47)
+	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:64)
+	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:61)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:61)
+	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:47)
+	at org.gradle.internal.execution.steps.CancelExecutionStep.execute(CancelExecutionStep.java:42)
+	at org.gradle.internal.execution.steps.TimeoutStep.executeWithoutTimeout(TimeoutStep.java:75)
+	at org.gradle.internal.execution.steps.TimeoutStep.execute(TimeoutStep.java:55)
+	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:51)
+	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:29)
+	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.executeMutable(RemovePreviousOutputsStep.java:70)
+	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.executeMutable(RemovePreviousOutputsStep.java:40)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:62)
+	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:27)
+	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:69)
+	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:46)
+	at org.gradle.internal.execution.steps.ResolveInputChangesStep.executeMutable(ResolveInputChangesStep.java:39)
+	at org.gradle.internal.execution.steps.ResolveInputChangesStep.executeMutable(ResolveInputChangesStep.java:28)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+	at org.gradle.internal.execution.steps.BuildCacheStep.executeWithoutCache(BuildCacheStep.java:192)
+	at org.gradle.internal.execution.steps.BuildCacheStep.lambda$execute$1(BuildCacheStep.java:76)
+	at org.gradle.internal.Either$Right.fold(Either.java:176)
+	at org.gradle.internal.execution.caching.CachingState.fold(CachingState.java:62)
+	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:74)
+	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:49)
+	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:46)
+	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:35)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.executeBecause(SkipUpToDateStep.java:75)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.lambda$execute$2(SkipUpToDateStep.java:53)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:53)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:35)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:37)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:27)
+	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:49)
+	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:27)
+	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:71)
+	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:39)
+	at org.gradle.internal.execution.steps.ResolveChangesStep.executeMutable(ResolveChangesStep.java:63)
+	at org.gradle.internal.execution.steps.ResolveChangesStep.executeMutable(ResolveChangesStep.java:34)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:64)
+	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:42)
+	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:77)
+	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:46)
+	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.executeWithNonEmptySources(AbstractSkipEmptyWorkStep.java:133)
+	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:64)
+	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:36)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsStartedStep.execute(MarkSnapshottingInputsStartedStep.java:38)
+	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:36)
+	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:23)
+	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.executeMutable(HandleStaleOutputsStep.java:77)
+	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.executeMutable(HandleStaleOutputsStep.java:43)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.lambda$execute$0(AssignMutableWorkspaceStep.java:35)
+	at org.gradle.api.internal.tasks.execution.TaskExecution$4.withWorkspace(TaskExecution.java:305)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:31)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:22)
+	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:40)
+	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:23)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.lambda$execute$2(ExecuteWorkBuildOperationFiringStep.java:67)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:67)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:39)
+	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:46)
+	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:34)
+	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:44)
+	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:31)
+	at org.gradle.internal.execution.impl.DefaultExecutionEngine$1.execute(DefaultExecutionEngine.java:68)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:132)
+	... 61 more
+Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilation error. See log for more details
+	at org.jetbrains.kotlin.gradle.tasks.TasksUtilsKt.throwExceptionIfCompilationFailed(tasksUtils.kt:21)
+	at org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.run(GradleKotlinCompilerWork.kt:119)
+	at org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction.execute(GradleCompilerRunnerWithWorkers.kt:74)
+	at org.gradle.workers.internal.DefaultWorkerServer.execute(DefaultWorkerServer.java:68)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:64)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:61)
+	at org.gradle.internal.classloader.ClassLoaderUtils.executeInClassloader(ClassLoaderUtils.java:102)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.lambda$execute$0(NoIsolationWorkerFactory.java:61)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:44)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:41)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.workers.internal.AbstractWorker.executeWrappedInBuildOperation(AbstractWorker.java:41)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.execute(NoIsolationWorkerFactory.java:58)
+	at org.gradle.workers.internal.DefaultWorkerExecutor.lambda$submitWork$0(DefaultWorkerExecutor.java:176)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runExecution(DefaultConditionalExecutionQueue.java:194)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.access$700(DefaultConditionalExecutionQueue.java:127)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner$1.run(DefaultConditionalExecutionQueue.java:169)
+	at org.gradle.internal.Factories$1.create(Factories.java:30)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withLocksAcquired$0(DefaultWorkerLeaseService.java:269)
+	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:42)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocksAcquired(DefaultWorkerLeaseService.java:267)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:259)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:127)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:132)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runBatch(DefaultConditionalExecutionQueue.java:164)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.run(DefaultConditionalExecutionQueue.java:133)
+	... 2 more
+
+
+BUILD FAILED in 1m 3s
+7 actionable tasks: 2 executed, 5 up-to-date
+Watched directory hierarchies: [C:\Users\MASTER-T\AndroidStudioProjects\JanManager]
